@@ -1,0 +1,151 @@
+source: mta_gtfs
+version: 1
+domain: subway
+description: >
+  The MTA's published subway schedule in GTFS form. Each published version is kept, keyed by
+  feed_version, so a train observed on any date can be compared with the schedule that was in
+  force that day. Only versions published after loading started are available.
+cadence: daily
+freshness_sla: 45 days
+upstream:
+  - https://rrgtfsfeeds.s3.amazonaws.com/gtfs_subway.zip
+
+tables:
+  - name: gtfs_feed_version
+    description: One row per schedule version the lake has loaded.
+    grain: one row per schedule version
+    primary_key: [feed_version]
+    write: append_new
+    columns:
+      - {name: feed_version, type: VARCHAR, nullable: false, description: "Lake id for the version: first 12 characters of the zip's SHA-256."}
+      - {name: publisher_version, type: VARCHAR, description: Version string the MTA put in feed_info.txt.}
+      - {name: feed_start_date, type: DATE, description: First service date the schedule covers.}
+      - {name: feed_end_date, type: DATE, description: Last service date the schedule covers.}
+      - {name: file_sha256, type: VARCHAR, nullable: false, description: SHA-256 of the zip as downloaded.}
+      - {name: loaded_at, type: TIMESTAMPTZ, nullable: false, description: When the lake loaded this version.}
+
+  - name: gtfs_route
+    description: Subway routes, such as the A or the 7.
+    grain: one row per route per schedule version
+    primary_key: [feed_version, route_id]
+    write: append_new
+    columns:
+      - {name: feed_version, type: VARCHAR, nullable: false, description: Schedule version.}
+      - {name: route_id, type: VARCHAR, nullable: false, description: "Route id, for example A, 7, GS (42 St Shuttle), FS, H, SI."}
+      - {name: route_short_name, type: VARCHAR, description: Name on signs.}
+      - {name: route_long_name, type: VARCHAR, description: "Line name, for example 8 Avenue Express."}
+      - {name: route_desc, type: VARCHAR, description: Where and when the route runs, in the MTA's words.}
+      - {name: route_type, type: SMALLINT, description: GTFS route type. 1 is subway.}
+      - {name: route_url, type: VARCHAR, description: Schedule page on mta.info.}
+      - {name: route_color, type: VARCHAR, description: Hex colour of the route bullet.}
+      - {name: route_text_color, type: VARCHAR, description: Hex colour of text on the bullet.}
+      - {name: route_sort_order, type: SMALLINT, description: Order the MTA lists routes in.}
+
+  - name: gtfs_stop
+    description: >
+      Stations and platforms. A station (location_type 1) has one child platform per direction,
+      whose id adds N or S, for example 101 and 101N, 101S.
+    grain: one row per stop per schedule version
+    primary_key: [feed_version, stop_id]
+    write: append_new
+    columns:
+      - {name: feed_version, type: VARCHAR, nullable: false, description: Schedule version.}
+      - {name: stop_id, type: VARCHAR, nullable: false, description: Stop id. Platform ids end in N or S.}
+      - {name: stop_name, type: VARCHAR, nullable: false, description: Station name.}
+      - {name: latitude, type: DOUBLE, nullable: false, description: Latitude.}
+      - {name: longitude, type: DOUBLE, nullable: false, description: Longitude.}
+      - {name: is_station, type: BOOLEAN, nullable: false, description: True for the station, false for its platforms.}
+      - {name: parent_station, type: VARCHAR, description: Station a platform belongs to.}
+      - {name: direction, type: VARCHAR, accepted: [N, S], description: "Platform direction: N uptown and toward the Bronx, S downtown and toward Brooklyn."}
+      - {name: boro_code, type: TINYINT, description: Borough the stop falls in.}
+      - {name: nta_code, type: VARCHAR, description: Neighborhood Tabulation Area the stop falls in.}
+      - {name: community_district, type: SMALLINT, description: Community district the stop falls in.}
+      - {name: modzcta, type: VARCHAR, description: ZIP area the stop falls in.}
+      - {name: council_district, type: TINYINT, description: Council district the stop falls in.}
+      - {name: police_precinct, type: SMALLINT, description: Police precinct the stop falls in.}
+      - {name: taxi_zone_id, type: SMALLINT, description: TLC taxi zone the stop falls in.}
+
+  - name: gtfs_trip
+    description: Scheduled trips.
+    grain: one row per trip per schedule version
+    primary_key: [feed_version, trip_id]
+    write: append_new
+    columns:
+      - {name: feed_version, type: VARCHAR, nullable: false, description: Schedule version.}
+      - {name: trip_id, type: VARCHAR, nullable: false, description: Schedule trip id.}
+      - {name: route_id, type: VARCHAR, nullable: false, description: Route the trip runs on.}
+      - {name: service_id, type: VARCHAR, nullable: false, description: Service pattern, see gtfs_calendar.}
+      - {name: trip_headsign, type: VARCHAR, description: Destination shown on the train.}
+      - {name: direction_id, type: TINYINT, accepted: ["0", "1"], description: "GTFS direction: 0 north, 1 south."}
+      - {name: shape_id, type: VARCHAR, description: Path the train follows, see gtfs_shape.}
+      - {name: realtime_trip_id, type: VARCHAR, description: "The part of trip_id the realtime feed uses, for example 000600_1..S03R. Join key to subway_trips."}
+
+  - name: gtfs_stop_time
+    description: >
+      Scheduled arrival and departure at each stop. Times past midnight are written as hours
+      over 24, so 25:10:00 is 1:10 the next morning on the same service day.
+    grain: one row per trip per stop per schedule version
+    primary_key: [feed_version, trip_id, stop_sequence]
+    write: append_new
+    columns:
+      - {name: feed_version, type: VARCHAR, nullable: false, description: Schedule version.}
+      - {name: trip_id, type: VARCHAR, nullable: false, description: Schedule trip id.}
+      - {name: stop_sequence, type: SMALLINT, nullable: false, min: 0, description: Position of the stop in the trip.}
+      - {name: stop_id, type: VARCHAR, nullable: false, description: Platform stop id.}
+      - {name: arrival_time, type: VARCHAR, description: Scheduled arrival as published, HH:MM:SS.}
+      - {name: departure_time, type: VARCHAR, description: Scheduled departure as published.}
+      - {name: arrival_seconds, type: INTEGER, min: 0, max: 172800, unit: seconds, description: Scheduled arrival in seconds after midnight of the service day.}
+      - {name: departure_seconds, type: INTEGER, min: 0, max: 172800, unit: seconds, description: Scheduled departure in seconds after midnight of the service day.}
+
+  - name: gtfs_calendar
+    description: Weekly service patterns and the dates they apply.
+    grain: one row per service pattern per schedule version
+    primary_key: [feed_version, service_id]
+    write: append_new
+    columns:
+      - {name: feed_version, type: VARCHAR, nullable: false, description: Schedule version.}
+      - {name: service_id, type: VARCHAR, nullable: false, description: Service pattern id.}
+      - {name: monday, type: BOOLEAN, nullable: false, description: Runs on Mondays.}
+      - {name: tuesday, type: BOOLEAN, nullable: false, description: Runs on Tuesdays.}
+      - {name: wednesday, type: BOOLEAN, nullable: false, description: Runs on Wednesdays.}
+      - {name: thursday, type: BOOLEAN, nullable: false, description: Runs on Thursdays.}
+      - {name: friday, type: BOOLEAN, nullable: false, description: Runs on Fridays.}
+      - {name: saturday, type: BOOLEAN, nullable: false, description: Runs on Saturdays.}
+      - {name: sunday, type: BOOLEAN, nullable: false, description: Runs on Sundays.}
+      - {name: start_date, type: DATE, nullable: false, description: First date the pattern applies.}
+      - {name: end_date, type: DATE, nullable: false, description: Last date the pattern applies.}
+
+  - name: gtfs_calendar_date
+    description: Single-day exceptions to the weekly patterns, such as holidays.
+    grain: one row per service pattern per date per schedule version
+    primary_key: [feed_version, service_id, service_date]
+    write: append_new
+    columns:
+      - {name: feed_version, type: VARCHAR, nullable: false, description: Schedule version.}
+      - {name: service_id, type: VARCHAR, nullable: false, description: Service pattern id.}
+      - {name: service_date, type: DATE, nullable: false, description: Date of the exception.}
+      - {name: exception_type, type: TINYINT, nullable: false, accepted: ["1", "2"], description: 1 adds the pattern on that date, 2 removes it.}
+
+  - name: gtfs_shape
+    description: Points along each path trains follow.
+    grain: one row per point per shape per schedule version
+    primary_key: [feed_version, shape_id, point_sequence]
+    write: append_new
+    columns:
+      - {name: feed_version, type: VARCHAR, nullable: false, description: Schedule version.}
+      - {name: shape_id, type: VARCHAR, nullable: false, description: Shape id.}
+      - {name: point_sequence, type: INTEGER, nullable: false, min: 0, description: Order of the point along the shape.}
+      - {name: latitude, type: DOUBLE, nullable: false, description: Latitude.}
+      - {name: longitude, type: DOUBLE, nullable: false, description: Longitude.}
+
+  - name: gtfs_transfer
+    description: Allowed transfers between stations and the minimum time they take.
+    grain: one row per pair of stops per schedule version
+    primary_key: [feed_version, from_stop_id, to_stop_id]
+    write: append_new
+    columns:
+      - {name: feed_version, type: VARCHAR, nullable: false, description: Schedule version.}
+      - {name: from_stop_id, type: VARCHAR, nullable: false, description: Station transferred from.}
+      - {name: to_stop_id, type: VARCHAR, nullable: false, description: Station transferred to.}
+      - {name: transfer_type, type: TINYINT, description: "GTFS transfer type. 2 means a minimum time applies."}
+      - {name: min_transfer_seconds, type: INTEGER, min: 0, unit: seconds, description: Minimum time needed to transfer.}
