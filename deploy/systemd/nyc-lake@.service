@@ -1,0 +1,18 @@
+[Unit]
+Description=NYCynapse lake load: %i
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/NYCynapse_Lake
+EnvironmentFile=/root/.secrets/nycynapse.env
+Environment=HOME=/root
+ExecStart=/root/NYCynapse_Lake/.venv/bin/nyc-lake run %i
+# 75 means the source was busy or its circuit breaker is open. Not a failure.
+SuccessExitStatus=75
+MemoryMax=1536M
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+TimeoutStartSec=12h

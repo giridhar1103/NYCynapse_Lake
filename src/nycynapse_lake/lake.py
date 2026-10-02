@@ -1,5 +1,7 @@
 """DuckDB connections attached to the DuckLake catalog."""
 
+import os
+
 import duckdb
 
 from .config import Settings
@@ -16,6 +18,9 @@ def _catalog_uri(settings: Settings) -> str:
 
 def connect(settings: Settings, *, read_only: bool = False) -> duckdb.DuckDBPyConnection:
     con = duckdb.connect()
+    if not os.environ.get("HOME"):
+        # systemd services start without HOME, and DuckDB keeps its extensions under it.
+        con.execute("SET home_directory = '/root'")
     settings.tmp_path.mkdir(parents=True, exist_ok=True)
     con.execute(f"SET memory_limit = '{settings.memory_limit}'")
     con.execute(f"SET threads = {int(settings.threads)}")

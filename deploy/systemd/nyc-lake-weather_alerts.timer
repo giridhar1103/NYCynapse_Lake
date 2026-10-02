@@ -1,0 +1,11 @@
+[Unit]
+Description=Schedule for NYCynapse lake load: weather_alerts
+
+[Timer]
+OnCalendar=*:0/5
+RandomizedDelaySec=30s
+Persistent=true
+Unit=nyc-lake@weather_alerts.service
+
+[Install]
+WantedBy=timers.target
