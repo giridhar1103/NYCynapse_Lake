@@ -57,18 +57,29 @@ def pieces_sql(schema: str = "lake.silver") -> str:
     """
 
 
-def tag_points(source_sql: str, *, lon: str, lat: str, schema: str = "lake.silver") -> str:
+def tag_points(
+    source_sql: str,
+    *,
+    lon: str,
+    lat: str,
+    schema: str = "lake.silver",
+    prefix: str = "",
+    columns: tuple[str, ...] | None = None,
+) -> str:
     """Wrap a query so each row gains the GEO_COLUMNS for its longitude and latitude.
 
     Points outside the grid, or with missing coordinates, get nulls. Each distinct coordinate
     is looked up once, which matters for sources like 311 where many rows share an address.
+    `columns` limits the output to some of the GEO_COLUMNS and `prefix` is put in front of each
+    name, which lets one row be tagged twice, for example at the start and end of a ride.
     """
     lon_hi, lat_hi = LON0 + COLS * GRID, LAT0 + ROWS * GRID
+    wanted = [c for c in GEO_COLUMNS if columns is None or c[0] in columns]
     pivots = ",\n".join(
-        f"TRY_CAST(max(code) FILTER (WHERE layer = '{layer}') AS {kind}) AS {col}"
-        for col, layer, kind in GEO_COLUMNS
+        f"TRY_CAST(max(code) FILTER (WHERE layer = '{layer}') AS {kind}) AS {prefix}{col}"
+        for col, layer, kind in wanted
     )
-    out = ", ".join(f"g.{col}" for col, _, _ in GEO_COLUMNS)
+    out = ", ".join(f"g.{prefix}{col}" for col, _, _ in wanted)
     return f"""
         WITH src AS (
             SELECT s.*, TRY_CAST({lon} AS DOUBLE) AS _lon, TRY_CAST({lat} AS DOUBLE) AS _lat
