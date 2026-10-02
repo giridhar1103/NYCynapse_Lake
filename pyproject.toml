@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nycynapse-lake"
+version = "0.1.0"
+description = "NYC mobility lakehouse on DuckLake: batch and realtime ingestion, contracts, quality checks"
+requires-python = ">=3.12"
+dependencies = [
+    "duckdb>=1.5.2,<1.6",
+    "pyarrow>=19",
+    "httpx>=0.28",
+    "psycopg[binary]>=3.2",
+    "pyyaml>=6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+nyc-lake = "nycynapse_lake.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+nycynapse_lake = ["control/migrations/*.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
