@@ -1,0 +1,167 @@
+source: nyc_geo
+version: 1
+domain: geography
+description: >
+  Administrative and statistical boundaries for New York City from NYC Open Data, published by
+  the Department of City Planning, plus the TLC taxi zone shapes. Every location in the lake is
+  tagged against these polygons when it is loaded. Geometries are WGS 84 (EPSG:4326).
+cadence: monthly
+freshness_sla: 60 days
+upstream:
+  - https://data.cityofnewyork.us/resource/gthc-hcne.geojson
+  - https://data.cityofnewyork.us/resource/9nt8-h7nd.geojson
+  - https://data.cityofnewyork.us/resource/xn3r-zk6y.geojson
+  - https://data.cityofnewyork.us/resource/5crt-au7u.geojson
+  - https://data.cityofnewyork.us/resource/pri4-ifjk.geojson
+  - https://data.cityofnewyork.us/resource/872g-cjhh.geojson
+  - https://data.cityofnewyork.us/resource/y76i-bdw7.geojson
+  - https://data.cityofnewyork.us/resource/8meu-9t5y.geojson
+
+tables:
+  - name: geo_borough
+    description: The five boroughs, clipped to the shoreline.
+    grain: one row per borough
+    primary_key: [boro_code]
+    write: replace_all
+    min_rows: 5
+    columns:
+      - {name: boro_code, type: TINYINT, nullable: false, min: 1, max: 5,
+         description: "Borough code: 1 Manhattan, 2 Bronx, 3 Brooklyn, 4 Queens, 5 Staten Island."}
+      - {name: boro_name, type: VARCHAR, nullable: false,
+         accepted: [Manhattan, Bronx, Brooklyn, Queens, Staten Island],
+         description: Borough name.}
+      - {name: area_sq_ft, type: DOUBLE, unit: square feet,
+         description: Land area as published, measured in the New York State Plane projection.}
+      - {name: geom, type: GEOMETRY, nullable: false, description: Borough boundary.}
+
+  - name: geo_nta
+    description: >
+      2020 Neighborhood Tabulation Areas. The usual answer to "which neighborhood": built from
+      census tracts, they nest inside CDTAs and boroughs.
+    grain: one row per NTA
+    primary_key: [nta_code]
+    write: replace_all
+    min_rows: 250
+    columns:
+      - {name: nta_code, type: VARCHAR, nullable: false, pattern: "(MN|BX|BK|QN|SI)[0-9]{4}",
+         description: "2020 NTA code, for example BK0101. The first four characters are the CDTA."}
+      - {name: nta_name, type: VARCHAR, nullable: false, description: "Neighborhood name, for example Greenpoint."}
+      - {name: nta_abbrev, type: VARCHAR, description: Short label used on maps.}
+      - {name: nta_kind, type: VARCHAR, nullable: false,
+         accepted: [residential, park, cemetery, airport, special_use, jail],
+         description: "residential for ordinary neighborhoods. The others have few or no residents and are kept apart so they do not distort per-neighborhood rates."}
+      - {name: cdta_code, type: VARCHAR, nullable: false, pattern: "(MN|BX|BK|QN|SI)[0-9]{2}",
+         description: Community District Tabulation Area that contains this NTA.}
+      - {name: boro_code, type: TINYINT, nullable: false, min: 1, max: 5, description: Borough code.}
+      - {name: boro_name, type: VARCHAR, nullable: false, description: Borough name.}
+      - {name: county_fips, type: VARCHAR, pattern: "[0-9]{3}", description: County FIPS code within New York State.}
+      - {name: area_sq_ft, type: DOUBLE, unit: square feet, description: Area in the State Plane projection.}
+      - {name: geom, type: GEOMETRY, nullable: false, description: NTA boundary.}
+
+  - name: geo_cdta
+    description: >
+      2020 Community District Tabulation Areas, built from census tracts to match the 59
+      community districts closely. Twelve more cover large parks and airports.
+    grain: one row per CDTA
+    primary_key: [cdta_code]
+    write: replace_all
+    min_rows: 70
+    columns:
+      - {name: cdta_code, type: VARCHAR, nullable: false, pattern: "(MN|BX|BK|QN|SI)[0-9]{2}",
+         description: "CDTA code, for example BK01."}
+      - {name: cdta_name, type: VARCHAR, nullable: false, description: Name as published, including the CD it matches.}
+      - {name: cdta_kind, type: VARCHAR, nullable: false, accepted: [community_district, joint_interest_area],
+         description: joint_interest_area for parks, airports and other areas outside any community district.}
+      - {name: boro_code, type: TINYINT, nullable: false, min: 1, max: 5, description: Borough code.}
+      - {name: boro_name, type: VARCHAR, nullable: false, description: Borough name.}
+      - {name: county_fips, type: VARCHAR, pattern: "[0-9]{3}", description: County FIPS code.}
+      - {name: area_sq_ft, type: DOUBLE, unit: square feet, description: Area in the State Plane projection.}
+      - {name: geom, type: GEOMETRY, nullable: false, description: CDTA boundary.}
+
+  - name: geo_community_district
+    description: >
+      Community districts as drawn by City Planning. 311 and many city agencies report by
+      these. Joint interest areas (large parks, airports) use district numbers above 18.
+    grain: one row per district
+    primary_key: [boro_cd]
+    write: replace_all
+    min_rows: 70
+    columns:
+      - {name: boro_cd, type: SMALLINT, nullable: false, min: 101, max: 595,
+         description: "Borough code times 100 plus district number. 410 is Queens Community District 10."}
+      - {name: boro_code, type: TINYINT, nullable: false, min: 1, max: 5, description: Borough code.}
+      - {name: district_number, type: TINYINT, nullable: false, min: 1, description: District number within the borough.}
+      - {name: is_joint_interest_area, type: BOOLEAN, nullable: false,
+         description: True for parks, airports and other areas outside the numbered districts.}
+      - {name: area_sq_ft, type: DOUBLE, unit: square feet, description: Area in the State Plane projection.}
+      - {name: geom, type: GEOMETRY, nullable: false, description: District boundary.}
+
+  - name: geo_modzcta
+    description: >
+      Modified ZIP Code Tabulation Areas from the Health Department. ZIP codes are delivery
+      routes, not areas, so this combines census ZCTAs into stable polygons that cover the city.
+    grain: one row per MODZCTA
+    primary_key: [modzcta]
+    write: replace_all
+    min_rows: 170
+    columns:
+      - {name: modzcta, type: VARCHAR, nullable: false, pattern: "[0-9]{5}", description: MODZCTA code.}
+      - {name: label, type: VARCHAR, description: "ZIP codes this area answers to, comma separated."}
+      - {name: zctas, type: VARCHAR, description: "Census ZCTAs combined into this area, comma separated."}
+      - {name: population_estimate, type: INTEGER, min: 0, unit: people, description: Population estimate published with the boundaries.}
+      - {name: geom, type: GEOMETRY, nullable: false, description: Area boundary.}
+
+  - name: geo_council_district
+    description: City Council districts, clipped to the shoreline.
+    grain: one row per district
+    primary_key: [council_district]
+    write: replace_all
+    min_rows: 51
+    columns:
+      - {name: council_district, type: TINYINT, nullable: false, min: 1, max: 51, description: Council district number.}
+      - {name: area_sq_ft, type: DOUBLE, unit: square feet, description: Area in the State Plane projection.}
+      - {name: geom, type: GEOMETRY, nullable: false, description: District boundary.}
+
+  - name: geo_police_precinct
+    description: NYPD precincts.
+    grain: one row per precinct
+    primary_key: [precinct]
+    write: replace_all
+    min_rows: 75
+    columns:
+      - {name: precinct, type: SMALLINT, nullable: false, min: 1, max: 123, description: Precinct number.}
+      - {name: area_sq_ft, type: DOUBLE, unit: square feet, description: Area in the State Plane projection.}
+      - {name: geom, type: GEOMETRY, nullable: false, description: Precinct boundary.}
+
+  - name: geo_taxi_zone
+    description: >
+      TLC taxi zone polygons. The published shapes fold zone 57 into 56 and zones 104 and 105
+      into 103, so those three ids have no polygon of their own. Zones 264 and 265 are
+      placeholders with no shape.
+    grain: one row per zone that has a polygon
+    primary_key: [location_id]
+    write: replace_all
+    min_rows: 255
+    columns:
+      - {name: location_id, type: SMALLINT, nullable: false, min: 1, max: 263, description: TLC zone id.}
+      - {name: zone_name, type: VARCHAR, nullable: false, description: Zone name.}
+      - {name: borough, type: VARCHAR, description: Borough as TLC publishes it. EWR for Newark Airport.}
+      - {name: geom, type: GEOMETRY, nullable: false, description: Zone boundary.}
+
+  - name: geo_piece
+    description: >
+      Every boundary above, cut along a 0.01 degree grid. Small pieces make point lookups fast
+      without simplifying any boundary. Rebuilt whenever a boundary table changes. Used by the
+      loaders to tag locations, not meant for querying.
+    grain: one row per boundary per grid cell it touches
+    primary_key: [layer, code, cell_x, cell_y]
+    write: replace_all
+    min_rows: 5000
+    columns:
+      - {name: layer, type: VARCHAR, nullable: false,
+         accepted: [borough, nta, community_district, modzcta, council_district, police_precinct, taxi_zone],
+         description: Which boundary set the piece comes from.}
+      - {name: code, type: VARCHAR, nullable: false, description: Code of the boundary in its own table, as text.}
+      - {name: cell_x, type: SMALLINT, nullable: false, min: 0, description: Grid column, counted from longitude -74.30.}
+      - {name: cell_y, type: SMALLINT, nullable: false, min: 0, description: Grid row, counted from latitude 40.47.}
+      - {name: geom, type: GEOMETRY, nullable: false, description: The part of the boundary inside the cell.}
