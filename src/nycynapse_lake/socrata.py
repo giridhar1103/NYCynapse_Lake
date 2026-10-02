@@ -17,6 +17,8 @@ from urllib.parse import urlencode
 from .http import Downloaded, Http
 
 PAGE_SIZE = 50_000
+# Socrata can take minutes before the first byte of a large filtered page, then stream fast.
+PAGE_TIMEOUT = 600.0
 
 
 @dataclass(frozen=True)
@@ -76,7 +78,10 @@ class Socrata:
                 "$limit": page_size,
             }
             got = self.http.download(
-                f"{ds.url('csv')}?{urlencode(params)}", dest, headers=self.headers
+                f"{ds.url('csv')}?{urlencode(params)}",
+                dest,
+                headers=self.headers,
+                timeout=PAGE_TIMEOUT,
             )
             rows, last = _scan(got.path, keys)
             if rows == 0:

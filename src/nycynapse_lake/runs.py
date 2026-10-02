@@ -6,6 +6,7 @@ which turns that repeat into a no-op instead of duplicate rows.
 """
 
 import logging
+import shutil
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -153,6 +154,7 @@ def run_source(
             con = connect(settings)
             ensure_schemas(con)
         ctl.start_run(run_id, contract.source)
+        _clear_temp(settings.tmp_path / contract.source)
         ctx = RunContext(run_id, contract, settings, ctl, con, http)
         try:
             yield ctx
@@ -187,6 +189,12 @@ def run_source(
             http.close()
         if own_ctl:
             ctl.close()
+
+
+def _clear_temp(directory) -> None:
+    """Remove files a crashed run left behind. Safe because this source holds its lock."""
+    if directory.exists():
+        shutil.rmtree(directory, ignore_errors=True)
 
 
 def _short(exc: Exception) -> str:

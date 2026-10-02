@@ -90,6 +90,7 @@ class Http:
         etag: str | None = None,
         last_modified: str | None = None,
         headers: dict | None = None,
+        timeout: float | None = None,
     ) -> Downloaded | None:
         """Stream url to a file in dest_dir. Returns None when the server says it has not changed.
 
@@ -107,7 +108,8 @@ class Http:
             digest = hashlib.sha256()
             size = 0
             try:
-                with self.client.stream("GET", url, headers=headers) as resp:
+                kw = {"timeout": httpx.Timeout(timeout, connect=15.0)} if timeout else {}
+                with self.client.stream("GET", url, headers=headers, **kw) as resp:
                     self._check(resp)
                     if resp.status_code == 304:
                         return None
