@@ -19,8 +19,8 @@ def main(argv: list[str] | None = None) -> int:
     r = sub.add_parser("run", help="run one source")
     r.add_argument("source")
     r.add_argument("--force", action="store_true", help="reload even if upstream is unchanged")
-    p = sub.add_parser("purge-quarantine", help="drop quarantined rows older than N days")
-    p.add_argument("--days", type=int, default=30)
+    m = sub.add_parser("maintain", help="compact files, expire old snapshots, purge quarantine")
+    m.add_argument("--keep-days", type=int, default=30)
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -46,9 +46,13 @@ def main(argv: list[str] | None = None) -> int:
             print(name)
         return 0
 
-    if args.cmd == "purge-quarantine":
+    if args.cmd == "maintain":
+        from . import maintain
+
         ctl = Control(settings.pg_dsn)
-        print("removed", ctl.purge_quarantine(args.days))
+        con = lake.connect(settings)
+        report = maintain.run(con, ctl, keep_days=args.keep_days)
+        print({k: v for k, v in report.items() if k != "merged"})
         return 0
 
     if args.cmd == "run":

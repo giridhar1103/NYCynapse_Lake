@@ -1,0 +1,13 @@
+[Unit]
+Description=NYCynapse lake maintenance
+After=postgresql.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/NYCynapse_Lake
+EnvironmentFile=/root/.secrets/nycynapse.env
+Environment=HOME=/root
+ExecStart=/root/NYCynapse_Lake/.venv/bin/nyc-lake maintain
+MemoryMax=1536M
+Nice=15
+TimeoutStartSec=3h
