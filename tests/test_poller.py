@@ -75,8 +75,19 @@ def test_subway_take_returns_alerts_and_forgets_old_ones(settings, ctl):
 
     p = SubwayPoller(settings, load(REPO_CONTRACTS / "subway_realtime.yaml"))
     p.alert_seen["gone"] = ["2020-01-01T00:00:00+00:00", "2020-01-01T00:00:00+00:00"]
-    p._alerts({"entity": [{"id": "a1", "alert": {"header_text": {"translation": [
-        {"language": "en", "text": "[A] delays"}]}}}]}, int(time.time()))
+    p._alerts(
+        {
+            "entity": [
+                {
+                    "id": "a1",
+                    "alert": {
+                        "header_text": {"translation": [{"language": "en", "text": "[A] delays"}]}
+                    },
+                }
+            ]
+        },
+        int(time.time()),
+    )
     batches = p.take()
     assert batches["subway_alerts"].column("alert_id").to_pylist() == ["a1"]
     assert batches["subway_stop_events"] is None

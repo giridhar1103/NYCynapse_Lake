@@ -61,12 +61,21 @@ def test_cell_edges_do_not_drop_or_duplicate_points(con):
 
 def test_prefix_and_subset(con):
     setup_layers(con)
-    con.execute("CREATE TEMP TABLE ride AS SELECT -73.97 AS a_lon, 40.75 AS a_lat, "
-                "-73.92 AS b_lon, 40.75 AS b_lat")
-    inner = geo.tag_points("SELECT * FROM ride", lon="a_lon", lat="a_lat", schema="lake.t",
-                           prefix="start_", columns=("nta_code", "boro_code"))
-    outer = geo.tag_points(inner, lon="b_lon", lat="b_lat", schema="lake.t", prefix="end_",
-                           columns=("nta_code",))
+    con.execute(
+        "CREATE TEMP TABLE ride AS SELECT -73.97 AS a_lon, 40.75 AS a_lat, "
+        "-73.92 AS b_lon, 40.75 AS b_lat"
+    )
+    inner = geo.tag_points(
+        "SELECT * FROM ride",
+        lon="a_lon",
+        lat="a_lat",
+        schema="lake.t",
+        prefix="start_",
+        columns=("nta_code", "boro_code"),
+    )
+    outer = geo.tag_points(
+        inner, lon="b_lon", lat="b_lat", schema="lake.t", prefix="end_", columns=("nta_code",)
+    )
     row = con.execute(f"SELECT start_nta_code, start_boro_code, end_nta_code FROM ({outer})")
     assert row.fetchall() == [("MN0101", 1, "MN0102")]
     names = [d[0] for d in con.execute(f"SELECT * FROM ({outer})").description]

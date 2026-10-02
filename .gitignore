@@ -10,3 +10,4 @@ dbt/logs/
 dbt/dbt_packages/
 .local/
 .venv-dbt/
+dbt/.user.yml
