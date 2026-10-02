@@ -12,6 +12,7 @@ MODULES = {
     "nyc_geo": "nycynapse_lake.sources.nyc_geo",
     "nyc_311": "nycynapse_lake.sources.nyc_311",
     "nyc_collisions": "nycynapse_lake.sources.nyc_collisions",
+    "dot_traffic": "nycynapse_lake.sources.dot_traffic",
     "mta_gtfs": "nycynapse_lake.sources.mta_gtfs",
     "mta_ridership": "nycynapse_lake.sources.mta_ridership",
     "weather": "nycynapse_lake.sources.weather",
