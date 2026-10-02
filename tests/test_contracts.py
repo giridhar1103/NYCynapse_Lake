@@ -68,3 +68,14 @@ def test_every_column_needs_a_description():
 def test_repo_contracts_are_valid():
     found = load_all(REPO_CONTRACTS)
     assert "tlc_zones" in found
+
+
+def test_unquoted_comma_in_a_description_is_caught():
+    import yaml
+
+    raw = base()
+    raw["tables"][0]["columns"] = yaml.safe_load(
+        "- {name: id, type: integer, nullable: false, description: Id, unique per thing.}"
+    )
+    with pytest.raises(ContractError, match="unknown keys"):
+        parse(raw)

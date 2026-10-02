@@ -24,33 +24,33 @@ tables:
     min_rows: 1000000
     max_reject_rate: 0.001
     columns:
-      - {name: file_month, type: DATE, nullable: false, description: Month of the TLC file the row came from. Nearly always the pickup month.}
-      - {name: company, type: VARCHAR, accepted: [Uber, Lyft, Via, Juno], description: Company that took the trip, decoded from the TLC license number.}
+      - {name: file_month, type: DATE, nullable: false, description: "Month of the TLC file the row came from. Nearly always the pickup month."}
+      - {name: company, type: VARCHAR, accepted: [Uber, Lyft, Via, Juno], description: "Company that took the trip, decoded from the TLC license number."}
       - {name: license_number, type: VARCHAR, nullable: false, description: "TLC license of the company: HV0003 Uber, HV0005 Lyft, HV0004 Via, HV0002 Juno."}
-      - {name: dispatching_base, type: VARCHAR, description: TLC base that dispatched the trip.}
-      - {name: originating_base, type: VARCHAR, description: TLC base that received the original request.}
-      - {name: requested_at, type: TIMESTAMPTZ, description: When the rider asked for the ride.}
-      - {name: on_scene_at, type: TIMESTAMPTZ, description: When the driver arrived at the pickup. Not reported by every company.}
-      - {name: pickup_at, type: TIMESTAMPTZ, nullable: false, description: When the trip started.}
-      - {name: dropoff_at, type: TIMESTAMPTZ, nullable: false, description: When the trip ended.}
-      - {name: pickup_zone_id, type: SMALLINT, nullable: false, min: 1, max: 265, description: TLC taxi zone of the pickup.}
-      - {name: dropoff_zone_id, type: SMALLINT, nullable: false, min: 1, max: 265, description: TLC taxi zone of the dropoff.}
-      - {name: trip_miles, type: DOUBLE, min: 0, unit: miles, description: Distance driven with the rider.}
-      - {name: trip_seconds, type: INTEGER, min: 0, unit: seconds, description: Time from pickup to dropoff, as reported.}
-      - {name: base_fare_usd, type: DOUBLE, unit: dollars, description: Fare before tolls, taxes, fees and tips.}
-      - {name: tolls_usd, type: DOUBLE, unit: dollars, description: Tolls charged.}
-      - {name: black_car_fund_usd, type: DOUBLE, unit: dollars, description: Black Car Fund surcharge.}
-      - {name: sales_tax_usd, type: DOUBLE, unit: dollars, description: Sales tax.}
-      - {name: congestion_surcharge_usd, type: DOUBLE, unit: dollars, description: New York State congestion surcharge for trips in Manhattan south of 96th Street.}
-      - {name: airport_fee_usd, type: DOUBLE, unit: dollars, description: Fee for pickups and dropoffs at LaGuardia, JFK and Newark.}
-      - {name: cbd_congestion_fee_usd, type: DOUBLE, unit: dollars, description: MTA congestion relief zone toll passed to the rider. Started 5 January 2025, empty before.}
-      - {name: tips_usd, type: DOUBLE, unit: dollars, description: Tip.}
-      - {name: driver_pay_usd, type: DOUBLE, unit: dollars, description: What the driver was paid, before tips.}
-      - {name: shared_requested, type: BOOLEAN, description: The rider asked for a shared ride.}
-      - {name: shared_matched, type: BOOLEAN, description: The rider shared the ride with another booking.}
-      - {name: access_a_ride, type: BOOLEAN, description: Trip done for the MTA Access-A-Ride program.}
-      - {name: wav_requested, type: BOOLEAN, description: The rider asked for a wheelchair accessible vehicle.}
-      - {name: wav_matched, type: BOOLEAN, description: The trip was in a wheelchair accessible vehicle.}
+      - {name: dispatching_base, type: VARCHAR, description: "TLC base that dispatched the trip."}
+      - {name: originating_base, type: VARCHAR, description: "TLC base that received the original request."}
+      - {name: requested_at, type: TIMESTAMPTZ, description: "When the rider asked for the ride."}
+      - {name: on_scene_at, type: TIMESTAMPTZ, description: "When the driver arrived at the pickup. Not reported by every company."}
+      - {name: pickup_at, type: TIMESTAMPTZ, nullable: false, description: "When the trip started."}
+      - {name: dropoff_at, type: TIMESTAMPTZ, nullable: false, description: "When the trip ended."}
+      - {name: pickup_zone_id, type: SMALLINT, nullable: false, min: 1, max: 265, description: "TLC taxi zone of the pickup."}
+      - {name: dropoff_zone_id, type: SMALLINT, nullable: false, min: 1, max: 265, description: "TLC taxi zone of the dropoff."}
+      - {name: trip_miles, type: DOUBLE, min: 0, unit: miles, description: "Distance driven with the rider."}
+      - {name: trip_seconds, type: INTEGER, min: 0, unit: seconds, description: "Time from pickup to dropoff, as reported."}
+      - {name: base_fare_usd, type: DOUBLE, unit: dollars, description: "Fare before tolls, taxes, fees and tips."}
+      - {name: tolls_usd, type: DOUBLE, unit: dollars, description: "Tolls charged."}
+      - {name: black_car_fund_usd, type: DOUBLE, unit: dollars, description: "Black Car Fund surcharge."}
+      - {name: sales_tax_usd, type: DOUBLE, unit: dollars, description: "Sales tax."}
+      - {name: congestion_surcharge_usd, type: DOUBLE, unit: dollars, description: "New York State congestion surcharge for trips in Manhattan south of 96th Street."}
+      - {name: airport_fee_usd, type: DOUBLE, unit: dollars, description: "Fee for pickups and dropoffs at LaGuardia, JFK and Newark."}
+      - {name: cbd_congestion_fee_usd, type: DOUBLE, unit: dollars, description: "MTA congestion relief zone toll passed to the rider. Started 5 January 2025, empty before."}
+      - {name: tips_usd, type: DOUBLE, unit: dollars, description: "Tip."}
+      - {name: driver_pay_usd, type: DOUBLE, unit: dollars, description: "What the driver was paid, before tips."}
+      - {name: shared_requested, type: BOOLEAN, description: "The rider asked for a shared ride."}
+      - {name: shared_matched, type: BOOLEAN, description: "The rider shared the ride with another booking."}
+      - {name: access_a_ride, type: BOOLEAN, description: "Trip done for the MTA Access-A-Ride program."}
+      - {name: wav_requested, type: BOOLEAN, description: "The rider asked for a wheelchair accessible vehicle."}
+      - {name: wav_matched, type: BOOLEAN, description: "The trip was in a wheelchair accessible vehicle."}
 
   - name: tlc_yellow_trips
     description: Yellow taxi trips, from street hails and the taxi apps.
@@ -61,27 +61,27 @@ tables:
     min_rows: 100000
     max_reject_rate: 0.001
     columns:
-      - {name: file_month, type: DATE, nullable: false, description: Month of the TLC file the row came from.}
+      - {name: file_month, type: DATE, nullable: false, description: "Month of the TLC file the row came from."}
       - {name: vendor_id, type: TINYINT, description: "Technology provider that recorded the trip: 1 Creative Mobile, 2 Curb, 6 Myle, 7 Helix."}
-      - {name: pickup_at, type: TIMESTAMPTZ, nullable: false, description: When the meter was engaged.}
-      - {name: dropoff_at, type: TIMESTAMPTZ, nullable: false, description: When the meter was disengaged.}
-      - {name: passenger_count, type: SMALLINT, min: 0, description: Passengers, as entered by the driver.}
-      - {name: trip_miles, type: DOUBLE, unit: miles, description: Distance on the meter.}
+      - {name: pickup_at, type: TIMESTAMPTZ, nullable: false, description: "When the meter was engaged."}
+      - {name: dropoff_at, type: TIMESTAMPTZ, nullable: false, description: "When the meter was disengaged."}
+      - {name: passenger_count, type: SMALLINT, min: 0, description: "Passengers, as entered by the driver."}
+      - {name: trip_miles, type: DOUBLE, unit: miles, description: "Distance on the meter."}
       - {name: rate_code, type: SMALLINT, description: "Rate in effect: 1 standard, 2 JFK, 3 Newark, 4 Nassau or Westchester, 5 negotiated, 6 group ride, 99 unknown."}
-      - {name: stored_and_forwarded, type: BOOLEAN, description: The record was held in the vehicle before it was sent, usually for lack of signal.}
-      - {name: pickup_zone_id, type: SMALLINT, nullable: false, min: 1, max: 265, description: TLC taxi zone of the pickup.}
-      - {name: dropoff_zone_id, type: SMALLINT, nullable: false, min: 1, max: 265, description: TLC taxi zone of the dropoff.}
+      - {name: stored_and_forwarded, type: BOOLEAN, description: "The record was held in the vehicle before it was sent, usually for lack of signal."}
+      - {name: pickup_zone_id, type: SMALLINT, nullable: false, min: 1, max: 265, description: "TLC taxi zone of the pickup."}
+      - {name: dropoff_zone_id, type: SMALLINT, nullable: false, min: 1, max: 265, description: "TLC taxi zone of the dropoff."}
       - {name: payment_type, type: SMALLINT, description: "0 flex fare, 1 credit card, 2 cash, 3 no charge, 4 dispute, 5 unknown, 6 voided trip."}
-      - {name: fare_usd, type: DOUBLE, unit: dollars, description: Time and distance fare from the meter.}
-      - {name: extra_usd, type: DOUBLE, unit: dollars, description: Rush hour and overnight surcharges.}
-      - {name: mta_tax_usd, type: DOUBLE, unit: dollars, description: MTA tax.}
-      - {name: tip_usd, type: DOUBLE, unit: dollars, description: Tip. Card tips only, cash tips are not recorded.}
-      - {name: tolls_usd, type: DOUBLE, unit: dollars, description: Tolls.}
-      - {name: improvement_surcharge_usd, type: DOUBLE, unit: dollars, description: Improvement surcharge.}
-      - {name: congestion_surcharge_usd, type: DOUBLE, unit: dollars, description: New York State congestion surcharge.}
-      - {name: airport_fee_usd, type: DOUBLE, unit: dollars, description: Airport fee.}
-      - {name: cbd_congestion_fee_usd, type: DOUBLE, unit: dollars, description: MTA congestion relief zone toll. Started 5 January 2025.}
-      - {name: total_usd, type: DOUBLE, unit: dollars, description: Total charged, not including cash tips.}
+      - {name: fare_usd, type: DOUBLE, unit: dollars, description: "Time and distance fare from the meter."}
+      - {name: extra_usd, type: DOUBLE, unit: dollars, description: "Rush hour and overnight surcharges."}
+      - {name: mta_tax_usd, type: DOUBLE, unit: dollars, description: "MTA tax."}
+      - {name: tip_usd, type: DOUBLE, unit: dollars, description: "Tip. Card tips only, cash tips are not recorded."}
+      - {name: tolls_usd, type: DOUBLE, unit: dollars, description: "Tolls."}
+      - {name: improvement_surcharge_usd, type: DOUBLE, unit: dollars, description: "Improvement surcharge."}
+      - {name: congestion_surcharge_usd, type: DOUBLE, unit: dollars, description: "New York State congestion surcharge."}
+      - {name: airport_fee_usd, type: DOUBLE, unit: dollars, description: "Airport fee."}
+      - {name: cbd_congestion_fee_usd, type: DOUBLE, unit: dollars, description: "MTA congestion relief zone toll. Started 5 January 2025."}
+      - {name: total_usd, type: DOUBLE, unit: dollars, description: "Total charged, not including cash tips."}
 
   - name: tlc_green_trips
     description: Green taxi trips. Green cabs may only pick up street hails outside the Yellow Zone.
@@ -92,25 +92,25 @@ tables:
     min_rows: 1000
     max_reject_rate: 0.001
     columns:
-      - {name: file_month, type: DATE, nullable: false, description: Month of the TLC file the row came from.}
+      - {name: file_month, type: DATE, nullable: false, description: "Month of the TLC file the row came from."}
       - {name: vendor_id, type: TINYINT, description: "Technology provider: 1 Creative Mobile, 2 Curb, 6 Myle."}
-      - {name: pickup_at, type: TIMESTAMPTZ, nullable: false, description: When the meter was engaged.}
-      - {name: dropoff_at, type: TIMESTAMPTZ, nullable: false, description: When the meter was disengaged.}
-      - {name: passenger_count, type: SMALLINT, min: 0, description: Passengers, as entered by the driver.}
-      - {name: trip_miles, type: DOUBLE, unit: miles, description: Distance on the meter.}
-      - {name: rate_code, type: SMALLINT, description: Rate in effect, same codes as yellow taxis.}
-      - {name: stored_and_forwarded, type: BOOLEAN, description: The record was held in the vehicle before it was sent.}
-      - {name: pickup_zone_id, type: SMALLINT, nullable: false, min: 1, max: 265, description: TLC taxi zone of the pickup.}
-      - {name: dropoff_zone_id, type: SMALLINT, nullable: false, min: 1, max: 265, description: TLC taxi zone of the dropoff.}
-      - {name: payment_type, type: SMALLINT, description: Same codes as yellow taxis.}
+      - {name: pickup_at, type: TIMESTAMPTZ, nullable: false, description: "When the meter was engaged."}
+      - {name: dropoff_at, type: TIMESTAMPTZ, nullable: false, description: "When the meter was disengaged."}
+      - {name: passenger_count, type: SMALLINT, min: 0, description: "Passengers, as entered by the driver."}
+      - {name: trip_miles, type: DOUBLE, unit: miles, description: "Distance on the meter."}
+      - {name: rate_code, type: SMALLINT, description: "Rate in effect, same codes as yellow taxis."}
+      - {name: stored_and_forwarded, type: BOOLEAN, description: "The record was held in the vehicle before it was sent."}
+      - {name: pickup_zone_id, type: SMALLINT, nullable: false, min: 1, max: 265, description: "TLC taxi zone of the pickup."}
+      - {name: dropoff_zone_id, type: SMALLINT, nullable: false, min: 1, max: 265, description: "TLC taxi zone of the dropoff."}
+      - {name: payment_type, type: SMALLINT, description: "Same codes as yellow taxis."}
       - {name: trip_type, type: TINYINT, description: "1 street hail, 2 dispatched."}
-      - {name: fare_usd, type: DOUBLE, unit: dollars, description: Time and distance fare from the meter.}
-      - {name: extra_usd, type: DOUBLE, unit: dollars, description: Rush hour and overnight surcharges.}
-      - {name: mta_tax_usd, type: DOUBLE, unit: dollars, description: MTA tax.}
-      - {name: tip_usd, type: DOUBLE, unit: dollars, description: Tip. Card tips only.}
-      - {name: tolls_usd, type: DOUBLE, unit: dollars, description: Tolls.}
-      - {name: ehail_fee_usd, type: DOUBLE, unit: dollars, description: E-hail fee. Rarely used.}
-      - {name: improvement_surcharge_usd, type: DOUBLE, unit: dollars, description: Improvement surcharge.}
-      - {name: congestion_surcharge_usd, type: DOUBLE, unit: dollars, description: New York State congestion surcharge.}
-      - {name: cbd_congestion_fee_usd, type: DOUBLE, unit: dollars, description: MTA congestion relief zone toll. Started 5 January 2025.}
-      - {name: total_usd, type: DOUBLE, unit: dollars, description: Total charged.}
+      - {name: fare_usd, type: DOUBLE, unit: dollars, description: "Time and distance fare from the meter."}
+      - {name: extra_usd, type: DOUBLE, unit: dollars, description: "Rush hour and overnight surcharges."}
+      - {name: mta_tax_usd, type: DOUBLE, unit: dollars, description: "MTA tax."}
+      - {name: tip_usd, type: DOUBLE, unit: dollars, description: "Tip. Card tips only."}
+      - {name: tolls_usd, type: DOUBLE, unit: dollars, description: "Tolls."}
+      - {name: ehail_fee_usd, type: DOUBLE, unit: dollars, description: "E-hail fee. Rarely used."}
+      - {name: improvement_surcharge_usd, type: DOUBLE, unit: dollars, description: "Improvement surcharge."}
+      - {name: congestion_surcharge_usd, type: DOUBLE, unit: dollars, description: "New York State congestion surcharge."}
+      - {name: cbd_congestion_fee_usd, type: DOUBLE, unit: dollars, description: "MTA congestion relief zone toll. Started 5 January 2025."}
+      - {name: total_usd, type: DOUBLE, unit: dollars, description: "Total charged."}

@@ -77,7 +77,43 @@ def _ident(value: str, what: str) -> str:
     return value
 
 
+COLUMN_KEYS = {
+    "name",
+    "type",
+    "description",
+    "nullable",
+    "unit",
+    "min",
+    "max",
+    "accepted",
+    "pattern",
+    "max_null_rate",
+}
+TABLE_KEYS = {
+    "name",
+    "description",
+    "grain",
+    "primary_key",
+    "write",
+    "columns",
+    "version_column",
+    "event_time",
+    "partition_by",
+    "min_rows",
+    "max_reject_rate",
+}
+
+
+def _no_unknown_keys(raw: dict, allowed: set[str], where: str) -> None:
+    # An unquoted comma in a YAML flow mapping silently starts a new key. Catch that here
+    # instead of loading a truncated description.
+    unknown = set(raw) - allowed
+    if unknown:
+        raise ContractError(f"{where}: unknown keys {sorted(unknown)}")
+
+
 def _column(raw: dict, table: str) -> Column:
+    _no_unknown_keys(raw, COLUMN_KEYS, f"{table}.{raw.get('name')}")
     try:
         col = Column(
             name=_ident(raw["name"], "column"),
@@ -100,6 +136,7 @@ def _column(raw: dict, table: str) -> Column:
 
 def _table(raw: dict) -> Table:
     name = _ident(raw.get("name"), "table")
+    _no_unknown_keys(raw, TABLE_KEYS, name)
     columns = tuple(_column(c, name) for c in raw.get("columns", []))
     names = [c.name for c in columns]
     if len(names) != len(set(names)):

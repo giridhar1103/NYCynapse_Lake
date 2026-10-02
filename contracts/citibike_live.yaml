@@ -21,17 +21,17 @@ tables:
     event_time: reported_at
     partition_by: [year(reported_at), month(reported_at)]
     columns:
-      - {name: station_id, type: VARCHAR, nullable: false, description: Station id. Joins to bike_station.}
-      - {name: reported_at, type: TIMESTAMPTZ, nullable: false, description: When the station reported these values.}
-      - {name: bikes_available, type: SMALLINT, nullable: false, min: 0, unit: bikes, description: Bikes ready to rent, classic and electric.}
-      - {name: ebikes_available, type: SMALLINT, min: 0, unit: bikes, description: Electric bikes ready to rent, included in bikes_available.}
-      - {name: bikes_disabled, type: SMALLINT, min: 0, unit: bikes, description: Broken or reserved bikes sitting in docks.}
-      - {name: docks_available, type: SMALLINT, nullable: false, min: 0, unit: docks, description: Empty docks a bike can be returned to.}
-      - {name: docks_disabled, type: SMALLINT, min: 0, unit: docks, description: Docks out of service.}
-      - {name: is_installed, type: BOOLEAN, nullable: false, description: The station is physically in place.}
-      - {name: is_renting, type: BOOLEAN, nullable: false, description: Bikes can be rented here.}
-      - {name: is_returning, type: BOOLEAN, nullable: false, description: Bikes can be returned here.}
-      - {name: polled_at, type: TIMESTAMPTZ, nullable: false, description: When the poller read the change.}
+      - {name: station_id, type: VARCHAR, nullable: false, description: "Station id. Joins to bike_station."}
+      - {name: reported_at, type: TIMESTAMPTZ, nullable: false, description: "When the station reported these values."}
+      - {name: bikes_available, type: SMALLINT, nullable: false, min: 0, unit: bikes, description: "Bikes ready to rent, classic and electric."}
+      - {name: ebikes_available, type: SMALLINT, min: 0, unit: bikes, description: "Electric bikes ready to rent, included in bikes_available."}
+      - {name: bikes_disabled, type: SMALLINT, min: 0, unit: bikes, description: "Broken or reserved bikes sitting in docks."}
+      - {name: docks_available, type: SMALLINT, nullable: false, min: 0, unit: docks, description: "Empty docks a bike can be returned to."}
+      - {name: docks_disabled, type: SMALLINT, min: 0, unit: docks, description: "Docks out of service."}
+      - {name: is_installed, type: BOOLEAN, nullable: false, description: "The station is physically in place."}
+      - {name: is_renting, type: BOOLEAN, nullable: false, description: "Bikes can be rented here."}
+      - {name: is_returning, type: BOOLEAN, nullable: false, description: "Bikes can be returned here."}
+      - {name: polled_at, type: TIMESTAMPTZ, nullable: false, description: "When the poller read the change."}
 
   - name: bike_station
     description: Citi Bike stations as last seen in the live feed.
@@ -39,20 +39,20 @@ tables:
     primary_key: [station_id]
     write: merge
     columns:
-      - {name: station_id, type: VARCHAR, nullable: false, description: Station id used by the live feeds.}
+      - {name: station_id, type: VARCHAR, nullable: false, description: "Station id used by the live feeds."}
       - {name: short_name, type: VARCHAR, description: "Station number, for example 8775.03. Trip history uses this as the station id."}
       - {name: name, type: VARCHAR, nullable: false, description: "Station name, usually two cross streets, for example Hull Ave & E 209 St."}
-      - {name: latitude, type: DOUBLE, nullable: false, description: Latitude.}
-      - {name: longitude, type: DOUBLE, nullable: false, description: Longitude.}
-      - {name: capacity, type: SMALLINT, min: 0, unit: docks, description: Number of docks.}
+      - {name: latitude, type: DOUBLE, nullable: false, description: "Latitude."}
+      - {name: longitude, type: DOUBLE, nullable: false, description: "Longitude."}
+      - {name: capacity, type: SMALLINT, min: 0, unit: docks, description: "Number of docks."}
       - {name: region, type: VARCHAR, description: "Operating area, for example NYC District, Bronx, JC District, Hoboken District."}
-      - {name: has_charging, type: BOOLEAN, description: The station charges electric bikes.}
-      - {name: first_seen_at, type: TIMESTAMPTZ, nullable: false, description: First time the poller saw the station.}
-      - {name: last_seen_at, type: TIMESTAMPTZ, nullable: false, description: Latest time the poller saw it. Stations removed from the system stop updating.}
-      - {name: boro_code, type: TINYINT, description: Borough the station is in. Empty in New Jersey.}
-      - {name: nta_code, type: VARCHAR, description: Neighborhood Tabulation Area.}
-      - {name: community_district, type: SMALLINT, description: Community district.}
-      - {name: modzcta, type: VARCHAR, description: ZIP area.}
-      - {name: council_district, type: TINYINT, description: Council district.}
-      - {name: police_precinct, type: SMALLINT, description: Police precinct.}
-      - {name: taxi_zone_id, type: SMALLINT, description: TLC taxi zone.}
+      - {name: has_charging, type: BOOLEAN, description: "The station charges electric bikes."}
+      - {name: first_seen_at, type: TIMESTAMPTZ, nullable: false, description: "First time the poller saw the station."}
+      - {name: last_seen_at, type: TIMESTAMPTZ, nullable: false, description: "Latest time the poller saw it. Stations removed from the system stop updating."}
+      - {name: boro_code, type: TINYINT, description: "Borough the station is in. Empty in New Jersey."}
+      - {name: nta_code, type: VARCHAR, description: "Neighborhood Tabulation Area."}
+      - {name: community_district, type: SMALLINT, description: "Community district."}
+      - {name: modzcta, type: VARCHAR, description: "ZIP area."}
+      - {name: council_district, type: TINYINT, description: "Council district."}
+      - {name: police_precinct, type: SMALLINT, description: "Police precinct."}
+      - {name: taxi_zone_id, type: SMALLINT, description: "TLC taxi zone."}

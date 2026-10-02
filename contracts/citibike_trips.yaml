@@ -20,23 +20,23 @@ tables:
     min_rows: 500000
     max_reject_rate: 0.001
     columns:
-      - {name: file_month, type: DATE, nullable: false, description: Month of the published file.}
-      - {name: ride_id, type: VARCHAR, nullable: false, description: Ride id.}
-      - {name: bike_type, type: VARCHAR, accepted: [classic_bike, electric_bike], description: Classic pedal bike or electric bike.}
+      - {name: file_month, type: DATE, nullable: false, description: "Month of the published file."}
+      - {name: ride_id, type: VARCHAR, nullable: false, description: "Ride id."}
+      - {name: bike_type, type: VARCHAR, accepted: [classic_bike, electric_bike], description: "Classic pedal bike or electric bike."}
       - {name: rider_type, type: VARCHAR, accepted: [member, casual], description: "member for annual members, casual for day passes and single rides."}
-      - {name: started_at, type: TIMESTAMPTZ, nullable: false, description: When the bike was unlocked.}
-      - {name: ended_at, type: TIMESTAMPTZ, nullable: false, description: When the bike was docked or locked.}
+      - {name: started_at, type: TIMESTAMPTZ, nullable: false, description: "When the bike was unlocked."}
+      - {name: ended_at, type: TIMESTAMPTZ, nullable: false, description: "When the bike was docked or locked."}
       - {name: start_station_id, type: VARCHAR, description: "Station number, for example 5506.14. Matches bike_station.short_name. Empty for e-bikes picked up away from a dock."}
-      - {name: start_station_name, type: VARCHAR, description: Station name at the start.}
-      - {name: end_station_id, type: VARCHAR, description: Station number at the end. Empty when the e-bike was left away from a dock.}
-      - {name: end_station_name, type: VARCHAR, description: Station name at the end.}
-      - {name: start_latitude, type: DOUBLE, description: Latitude at the start. GPS for e-bikes, the station point otherwise.}
-      - {name: start_longitude, type: DOUBLE, description: Longitude at the start.}
-      - {name: end_latitude, type: DOUBLE, description: Latitude at the end.}
-      - {name: end_longitude, type: DOUBLE, description: Longitude at the end.}
-      - {name: start_boro_code, type: TINYINT, description: Borough where the ride started.}
-      - {name: start_nta_code, type: VARCHAR, description: Neighborhood Tabulation Area where the ride started.}
-      - {name: start_taxi_zone_id, type: SMALLINT, description: TLC taxi zone where the ride started, for comparing with taxi and app trips.}
-      - {name: end_boro_code, type: TINYINT, description: Borough where the ride ended.}
-      - {name: end_nta_code, type: VARCHAR, description: Neighborhood Tabulation Area where the ride ended.}
-      - {name: end_taxi_zone_id, type: SMALLINT, description: TLC taxi zone where the ride ended.}
+      - {name: start_station_name, type: VARCHAR, description: "Station name at the start."}
+      - {name: end_station_id, type: VARCHAR, description: "Station number at the end. Empty when the e-bike was left away from a dock."}
+      - {name: end_station_name, type: VARCHAR, description: "Station name at the end."}
+      - {name: start_latitude, type: DOUBLE, description: "Latitude at the start. GPS for e-bikes, the station point otherwise."}
+      - {name: start_longitude, type: DOUBLE, description: "Longitude at the start."}
+      - {name: end_latitude, type: DOUBLE, description: "Latitude at the end."}
+      - {name: end_longitude, type: DOUBLE, description: "Longitude at the end."}
+      - {name: start_boro_code, type: TINYINT, description: "Borough where the ride started."}
+      - {name: start_nta_code, type: VARCHAR, description: "Neighborhood Tabulation Area where the ride started."}
+      - {name: start_taxi_zone_id, type: SMALLINT, description: "TLC taxi zone where the ride started, for comparing with taxi and app trips."}
+      - {name: end_boro_code, type: TINYINT, description: "Borough where the ride ended."}
+      - {name: end_nta_code, type: VARCHAR, description: "Neighborhood Tabulation Area where the ride ended."}
+      - {name: end_taxi_zone_id, type: SMALLINT, description: "TLC taxi zone where the ride ended."}

@@ -26,20 +26,20 @@ tables:
          description: "VTEC hazard code, for example HT heat, FA areal flood, CF coastal flood, WS winter storm."}
       - {name: significance, type: VARCHAR, nullable: false, accepted: [W, A, Y, S],
          description: "W warning, A watch, Y advisory, S statement."}
-      - {name: event_number, type: INTEGER, nullable: false, min: 1, description: Event number, unique per office, hazard and significance within a year.}
-      - {name: event_year, type: SMALLINT, nullable: false, min: 2000, description: Year the event was first issued.}
+      - {name: event_number, type: INTEGER, nullable: false, min: 1, description: "Event number, unique per office, hazard and significance within a year."}
+      - {name: event_year, type: SMALLINT, nullable: false, min: 2000, description: "Year the event was first issued."}
       - {name: zone, type: VARCHAR, nullable: false, accepted: [NYZ072, NYZ073, NYZ074, NYZ075, NYZ176, NYZ178],
          description: NWS forecast zone.}
       - {name: boro_code, type: TINYINT, nullable: false, min: 1, max: 5, description: "Borough the zone covers. Queens is split into a northern and a southern zone."}
       - {name: event_name, type: VARCHAR, nullable: false, description: "Plain name, for example Heat Advisory or Flash Flood Warning."}
-      - {name: starts_at, type: TIMESTAMPTZ, nullable: false, description: When the hazard starts, or when the alert was issued if it was already under way.}
-      - {name: ends_at, type: TIMESTAMPTZ, description: When the alert ends. Set to the cancel time when it was cancelled early.}
+      - {name: starts_at, type: TIMESTAMPTZ, nullable: false, description: "When the hazard starts, or when the alert was issued if it was already under way."}
+      - {name: ends_at, type: TIMESTAMPTZ, description: "When the alert ends. Set to the cancel time when it was cancelled early."}
       - {name: last_action, type: VARCHAR,
          accepted: [NEW, CON, EXT, EXA, EXB, UPG, CAN, EXP, COR, ROU],
          description: "Latest VTEC action seen: NEW issued, CON continued, EXT extended, CAN cancelled, EXP expired, UPG upgraded."}
-      - {name: severity, type: VARCHAR, description: CAP severity (Minor to Extreme). Only known for alerts captured live.}
-      - {name: certainty, type: VARCHAR, description: CAP certainty. Only known for alerts captured live.}
-      - {name: urgency, type: VARCHAR, description: CAP urgency. Only known for alerts captured live.}
-      - {name: headline, type: VARCHAR, description: Headline of the latest message. Only known for alerts captured live.}
-      - {name: captured_from, type: VARCHAR, nullable: false, accepted: [live, archive], description: Whether the row came from the live API or the archive.}
-      - {name: source_updated_at, type: TIMESTAMPTZ, nullable: false, description: Time of the latest message folded into this row.}
+      - {name: severity, type: VARCHAR, description: "CAP severity (Minor to Extreme). Only known for alerts captured live."}
+      - {name: certainty, type: VARCHAR, description: "CAP certainty. Only known for alerts captured live."}
+      - {name: urgency, type: VARCHAR, description: "CAP urgency. Only known for alerts captured live."}
+      - {name: headline, type: VARCHAR, description: "Headline of the latest message. Only known for alerts captured live."}
+      - {name: captured_from, type: VARCHAR, nullable: false, accepted: [live, archive], description: "Whether the row came from the live API or the archive."}
+      - {name: source_updated_at, type: TIMESTAMPTZ, nullable: false, description: "Time of the latest message folded into this row."}

@@ -23,18 +23,18 @@ tables:
     partition_by: [year(hour_start), month(hour_start)]
     max_reject_rate: 0.0001
     columns:
-      - {name: hour_start, type: TIMESTAMPTZ, nullable: false, description: Start of the hour, published in New York time.}
+      - {name: hour_start, type: TIMESTAMPTZ, nullable: false, description: "Start of the hour, published in New York time."}
       - {name: transit_mode, type: VARCHAR, nullable: false, accepted: [subway, staten_island_railway, tram],
          description: "subway, staten_island_railway, or tram (Roosevelt Island Tramway)."}
-      - {name: station_complex_id, type: VARCHAR, nullable: false, description: MTA station complex id. Joins to subway_station.complex_id.}
+      - {name: station_complex_id, type: VARCHAR, nullable: false, description: "MTA station complex id. Joins to subway_station.complex_id."}
       - {name: station_complex, type: VARCHAR, nullable: false, description: "Complex name with its routes, for example Hewes St (M,J)."}
-      - {name: borough, type: VARCHAR, accepted: [Manhattan, Bronx, Brooklyn, Queens, Staten Island], description: Borough of the complex.}
-      - {name: payment_method, type: VARCHAR, nullable: false, description: omny or metrocard.}
+      - {name: borough, type: VARCHAR, accepted: [Manhattan, Bronx, Brooklyn, Queens, Staten Island], description: "Borough of the complex."}
+      - {name: payment_method, type: VARCHAR, nullable: false, description: "omny or metrocard."}
       - {name: fare_class, type: VARCHAR, nullable: false, description: "Fare category, for example OMNY - Full Fare, Metrocard - Students, Metrocard - Fair Fare."}
-      - {name: riders, type: DOUBLE, nullable: false, min: 0, unit: riders, description: Estimated entries in the hour. Estimates, so not always whole numbers.}
-      - {name: transfers, type: DOUBLE, min: 0, unit: riders, description: Entries that were free transfers, included in riders.}
-      - {name: latitude, type: DOUBLE, description: Latitude of the complex.}
-      - {name: longitude, type: DOUBLE, description: Longitude of the complex.}
+      - {name: riders, type: DOUBLE, nullable: false, min: 0, unit: riders, description: "Estimated entries in the hour. Estimates, so not always whole numbers."}
+      - {name: transfers, type: DOUBLE, min: 0, unit: riders, description: "Entries that were free transfers, included in riders."}
+      - {name: latitude, type: DOUBLE, description: "Latitude of the complex."}
+      - {name: longitude, type: DOUBLE, description: "Longitude of the complex."}
 
   - name: subway_station
     description: >
@@ -46,27 +46,27 @@ tables:
     min_rows: 400
     columns:
       - {name: gtfs_stop_id, type: VARCHAR, nullable: false, description: "Station id in the schedule, for example R01. Platforms add N or S."}
-      - {name: station_id, type: VARCHAR, nullable: false, description: MTA station id.}
-      - {name: complex_id, type: VARCHAR, nullable: false, description: MTA station complex id. Several stations can share one.}
-      - {name: stop_name, type: VARCHAR, nullable: false, description: Station name.}
+      - {name: station_id, type: VARCHAR, nullable: false, description: "MTA station id."}
+      - {name: complex_id, type: VARCHAR, nullable: false, description: "MTA station complex id. Several stations can share one."}
+      - {name: stop_name, type: VARCHAR, nullable: false, description: "Station name."}
       - {name: division, type: VARCHAR, description: "Historical division: IRT, BMT or IND."}
       - {name: line, type: VARCHAR, description: "Line the station is on, for example Astoria or 8th Av - Fulton St."}
-      - {name: borough, type: VARCHAR, accepted: [Manhattan, Bronx, Brooklyn, Queens, Staten Island], description: Borough.}
-      - {name: in_congestion_zone, type: BOOLEAN, description: True for stations in the Manhattan congestion pricing zone (the CBD).}
-      - {name: daytime_routes, type: "VARCHAR[]", description: Routes that stop here during the day.}
+      - {name: borough, type: VARCHAR, accepted: [Manhattan, Bronx, Brooklyn, Queens, Staten Island], description: "Borough."}
+      - {name: in_congestion_zone, type: BOOLEAN, description: "True for stations in the Manhattan congestion pricing zone (the CBD)."}
+      - {name: daytime_routes, type: "VARCHAR[]", description: "Routes that stop here during the day."}
       - {name: structure, type: VARCHAR, description: "Subway, Elevated, At Grade, Open Cut, Embankment or Viaduct."}
-      - {name: latitude, type: DOUBLE, nullable: false, description: Latitude.}
-      - {name: longitude, type: DOUBLE, nullable: false, description: Longitude.}
-      - {name: north_direction_label, type: VARCHAR, description: Where northbound trains are signed to, for example Manhattan.}
-      - {name: south_direction_label, type: VARCHAR, description: Where southbound trains are signed to.}
-      - {name: accessibility, type: VARCHAR, accepted: [none, full, partial], description: ADA accessibility of the station.}
-      - {name: accessible_northbound, type: BOOLEAN, description: Northbound platform is accessible.}
-      - {name: accessible_southbound, type: BOOLEAN, description: Southbound platform is accessible.}
-      - {name: accessibility_notes, type: VARCHAR, description: Notes on partial accessibility.}
-      - {name: boro_code, type: TINYINT, description: Borough the station falls in.}
-      - {name: nta_code, type: VARCHAR, description: Neighborhood Tabulation Area the station falls in.}
-      - {name: community_district, type: SMALLINT, description: Community district the station falls in.}
-      - {name: modzcta, type: VARCHAR, description: ZIP area the station falls in.}
-      - {name: council_district, type: TINYINT, description: Council district the station falls in.}
-      - {name: police_precinct, type: SMALLINT, description: Police precinct the station falls in.}
-      - {name: taxi_zone_id, type: SMALLINT, description: TLC taxi zone the station falls in.}
+      - {name: latitude, type: DOUBLE, nullable: false, description: "Latitude."}
+      - {name: longitude, type: DOUBLE, nullable: false, description: "Longitude."}
+      - {name: north_direction_label, type: VARCHAR, description: "Where northbound trains are signed to, for example Manhattan."}
+      - {name: south_direction_label, type: VARCHAR, description: "Where southbound trains are signed to."}
+      - {name: accessibility, type: VARCHAR, accepted: [none, full, partial], description: "ADA accessibility of the station."}
+      - {name: accessible_northbound, type: BOOLEAN, description: "Northbound platform is accessible."}
+      - {name: accessible_southbound, type: BOOLEAN, description: "Southbound platform is accessible."}
+      - {name: accessibility_notes, type: VARCHAR, description: "Notes on partial accessibility."}
+      - {name: boro_code, type: TINYINT, description: "Borough the station falls in."}
+      - {name: nta_code, type: VARCHAR, description: "Neighborhood Tabulation Area the station falls in."}
+      - {name: community_district, type: SMALLINT, description: "Community district the station falls in."}
+      - {name: modzcta, type: VARCHAR, description: "ZIP area the station falls in."}
+      - {name: council_district, type: TINYINT, description: "Council district the station falls in."}
+      - {name: police_precinct, type: SMALLINT, description: "Police precinct the station falls in."}
+      - {name: taxi_zone_id, type: SMALLINT, description: "TLC taxi zone the station falls in."}

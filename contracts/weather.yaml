@@ -21,25 +21,25 @@ tables:
     partition_by: [year(hour_start)]
     min_rows: 1
     columns:
-      - {name: boro_code, type: TINYINT, nullable: false, min: 1, max: 5, description: Borough the reading point is in.}
-      - {name: hour_start, type: TIMESTAMPTZ, nullable: false, description: Start of the hour the values describe.}
-      - {name: latitude, type: DOUBLE, nullable: false, description: Latitude of the grid cell Open-Meteo used.}
-      - {name: longitude, type: DOUBLE, nullable: false, description: Longitude of the grid cell Open-Meteo used.}
-      - {name: temperature_c, type: DOUBLE, min: -40, max: 50, unit: degrees Celsius, description: Air temperature at 2 m.}
-      - {name: apparent_temperature_c, type: DOUBLE, min: -60, max: 65, unit: degrees Celsius, description: Feels-like temperature, combining wind chill and humidity.}
-      - {name: dew_point_c, type: DOUBLE, min: -60, max: 40, unit: degrees Celsius, description: Dew point at 2 m.}
-      - {name: relative_humidity_pct, type: DOUBLE, min: 0, max: 100, unit: percent, description: Relative humidity at 2 m.}
+      - {name: boro_code, type: TINYINT, nullable: false, min: 1, max: 5, description: "Borough the reading point is in."}
+      - {name: hour_start, type: TIMESTAMPTZ, nullable: false, description: "Start of the hour the values describe."}
+      - {name: latitude, type: DOUBLE, nullable: false, description: "Latitude of the grid cell Open-Meteo used."}
+      - {name: longitude, type: DOUBLE, nullable: false, description: "Longitude of the grid cell Open-Meteo used."}
+      - {name: temperature_c, type: DOUBLE, min: -40, max: 50, unit: degrees Celsius, description: "Air temperature at 2 m."}
+      - {name: apparent_temperature_c, type: DOUBLE, min: -60, max: 65, unit: degrees Celsius, description: "Feels-like temperature, combining wind chill and humidity."}
+      - {name: dew_point_c, type: DOUBLE, min: -60, max: 40, unit: degrees Celsius, description: "Dew point at 2 m."}
+      - {name: relative_humidity_pct, type: DOUBLE, min: 0, max: 100, unit: percent, description: "Relative humidity at 2 m."}
       - {name: precipitation_mm, type: DOUBLE, min: 0, max: 300, unit: millimetres, description: "Total precipitation in the hour: rain, showers and snow water equivalent."}
-      - {name: rain_mm, type: DOUBLE, min: 0, max: 300, unit: millimetres, description: Liquid rain in the hour.}
-      - {name: snowfall_cm, type: DOUBLE, min: 0, max: 100, unit: centimetres, description: Fresh snow in the hour.}
-      - {name: snow_depth_m, type: DOUBLE, min: 0, max: 5, unit: metres, description: Snow on the ground.}
+      - {name: rain_mm, type: DOUBLE, min: 0, max: 300, unit: millimetres, description: "Liquid rain in the hour."}
+      - {name: snowfall_cm, type: DOUBLE, min: 0, max: 100, unit: centimetres, description: "Fresh snow in the hour."}
+      - {name: snow_depth_m, type: DOUBLE, min: 0, max: 5, unit: metres, description: "Snow on the ground."}
       - {name: weather_code, type: SMALLINT, min: 0, max: 99, description: "WMO weather code: 0 clear, 61 to 65 rain, 71 to 75 snow, 95 to 99 thunderstorm."}
-      - {name: cloud_cover_pct, type: DOUBLE, min: 0, max: 100, unit: percent, description: Total cloud cover.}
-      - {name: pressure_msl_hpa, type: DOUBLE, min: 900, max: 1100, unit: hectopascals, description: Air pressure reduced to sea level.}
-      - {name: wind_speed_kmh, type: DOUBLE, min: 0, max: 250, unit: kilometres per hour, description: Mean wind speed at 10 m.}
-      - {name: wind_gusts_kmh, type: DOUBLE, min: 0, max: 300, unit: kilometres per hour, description: Strongest gust in the hour at 10 m.}
-      - {name: wind_direction_deg, type: DOUBLE, min: 0, max: 360, unit: degrees, description: Direction the wind comes from, 0 is north.}
-      - {name: is_day, type: BOOLEAN, description: True when the sun is up at the start of the hour.}
+      - {name: cloud_cover_pct, type: DOUBLE, min: 0, max: 100, unit: percent, description: "Total cloud cover."}
+      - {name: pressure_msl_hpa, type: DOUBLE, min: 900, max: 1100, unit: hectopascals, description: "Air pressure reduced to sea level."}
+      - {name: wind_speed_kmh, type: DOUBLE, min: 0, max: 250, unit: kilometres per hour, description: "Mean wind speed at 10 m."}
+      - {name: wind_gusts_kmh, type: DOUBLE, min: 0, max: 300, unit: kilometres per hour, description: "Strongest gust in the hour at 10 m."}
+      - {name: wind_direction_deg, type: DOUBLE, min: 0, max: 360, unit: degrees, description: "Direction the wind comes from, 0 is north."}
+      - {name: is_day, type: BOOLEAN, description: "True when the sun is up at the start of the hour."}
 
   - name: weather_recent_hourly
     description: >
@@ -51,24 +51,24 @@ tables:
     event_time: hour_start
     min_rows: 100
     columns:
-      - {name: boro_code, type: TINYINT, nullable: false, min: 1, max: 5, description: Borough the reading point is in.}
-      - {name: hour_start, type: TIMESTAMPTZ, nullable: false, description: Start of the hour the values describe.}
-      - {name: latitude, type: DOUBLE, nullable: false, description: Latitude of the grid cell Open-Meteo used.}
-      - {name: longitude, type: DOUBLE, nullable: false, description: Longitude of the grid cell Open-Meteo used.}
-      - {name: temperature_c, type: DOUBLE, min: -40, max: 50, unit: degrees Celsius, description: Air temperature at 2 m.}
-      - {name: apparent_temperature_c, type: DOUBLE, min: -60, max: 65, unit: degrees Celsius, description: Feels-like temperature.}
-      - {name: dew_point_c, type: DOUBLE, min: -60, max: 40, unit: degrees Celsius, description: Dew point at 2 m.}
-      - {name: relative_humidity_pct, type: DOUBLE, min: 0, max: 100, unit: percent, description: Relative humidity at 2 m.}
-      - {name: precipitation_mm, type: DOUBLE, min: 0, max: 300, unit: millimetres, description: Total precipitation in the hour.}
-      - {name: rain_mm, type: DOUBLE, min: 0, max: 300, unit: millimetres, description: Liquid rain in the hour.}
-      - {name: snowfall_cm, type: DOUBLE, min: 0, max: 100, unit: centimetres, description: Fresh snow in the hour.}
-      - {name: snow_depth_m, type: DOUBLE, min: 0, max: 5, unit: metres, description: Snow on the ground.}
-      - {name: weather_code, type: SMALLINT, min: 0, max: 99, description: WMO weather code.}
-      - {name: cloud_cover_pct, type: DOUBLE, min: 0, max: 100, unit: percent, description: Total cloud cover.}
-      - {name: pressure_msl_hpa, type: DOUBLE, min: 900, max: 1100, unit: hectopascals, description: Air pressure reduced to sea level.}
-      - {name: wind_speed_kmh, type: DOUBLE, min: 0, max: 250, unit: kilometres per hour, description: Mean wind speed at 10 m.}
-      - {name: wind_gusts_kmh, type: DOUBLE, min: 0, max: 300, unit: kilometres per hour, description: Strongest gust in the hour.}
-      - {name: wind_direction_deg, type: DOUBLE, min: 0, max: 360, unit: degrees, description: Direction the wind comes from.}
-      - {name: is_day, type: BOOLEAN, description: True when the sun is up at the start of the hour.}
-      - {name: is_forecast, type: BOOLEAN, nullable: false, description: True for hours that had not happened yet when the row was fetched.}
-      - {name: fetched_at, type: TIMESTAMPTZ, nullable: false, description: When this forecast was fetched.}
+      - {name: boro_code, type: TINYINT, nullable: false, min: 1, max: 5, description: "Borough the reading point is in."}
+      - {name: hour_start, type: TIMESTAMPTZ, nullable: false, description: "Start of the hour the values describe."}
+      - {name: latitude, type: DOUBLE, nullable: false, description: "Latitude of the grid cell Open-Meteo used."}
+      - {name: longitude, type: DOUBLE, nullable: false, description: "Longitude of the grid cell Open-Meteo used."}
+      - {name: temperature_c, type: DOUBLE, min: -40, max: 50, unit: degrees Celsius, description: "Air temperature at 2 m."}
+      - {name: apparent_temperature_c, type: DOUBLE, min: -60, max: 65, unit: degrees Celsius, description: "Feels-like temperature."}
+      - {name: dew_point_c, type: DOUBLE, min: -60, max: 40, unit: degrees Celsius, description: "Dew point at 2 m."}
+      - {name: relative_humidity_pct, type: DOUBLE, min: 0, max: 100, unit: percent, description: "Relative humidity at 2 m."}
+      - {name: precipitation_mm, type: DOUBLE, min: 0, max: 300, unit: millimetres, description: "Total precipitation in the hour."}
+      - {name: rain_mm, type: DOUBLE, min: 0, max: 300, unit: millimetres, description: "Liquid rain in the hour."}
+      - {name: snowfall_cm, type: DOUBLE, min: 0, max: 100, unit: centimetres, description: "Fresh snow in the hour."}
+      - {name: snow_depth_m, type: DOUBLE, min: 0, max: 5, unit: metres, description: "Snow on the ground."}
+      - {name: weather_code, type: SMALLINT, min: 0, max: 99, description: "WMO weather code."}
+      - {name: cloud_cover_pct, type: DOUBLE, min: 0, max: 100, unit: percent, description: "Total cloud cover."}
+      - {name: pressure_msl_hpa, type: DOUBLE, min: 900, max: 1100, unit: hectopascals, description: "Air pressure reduced to sea level."}
+      - {name: wind_speed_kmh, type: DOUBLE, min: 0, max: 250, unit: kilometres per hour, description: "Mean wind speed at 10 m."}
+      - {name: wind_gusts_kmh, type: DOUBLE, min: 0, max: 300, unit: kilometres per hour, description: "Strongest gust in the hour."}
+      - {name: wind_direction_deg, type: DOUBLE, min: 0, max: 360, unit: degrees, description: "Direction the wind comes from."}
+      - {name: is_day, type: BOOLEAN, description: "True when the sun is up at the start of the hour."}
+      - {name: is_forecast, type: BOOLEAN, nullable: false, description: "True for hours that had not happened yet when the row was fetched."}
+      - {name: fetched_at, type: TIMESTAMPTZ, nullable: false, description: "When this forecast was fetched."}

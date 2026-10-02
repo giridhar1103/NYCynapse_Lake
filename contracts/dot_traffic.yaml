@@ -20,10 +20,10 @@ tables:
     partition_by: [year(observed_at), month(observed_at)]
     max_reject_rate: 0.001
     columns:
-      - {name: link_id, type: VARCHAR, nullable: false, description: Road link. Joins to traffic_link.}
-      - {name: observed_at, type: TIMESTAMPTZ, nullable: false, description: Time of the reading, published in New York time.}
-      - {name: speed_mph, type: DOUBLE, min: 0, max: 150, unit: miles per hour, description: Average speed over the link.}
-      - {name: travel_time_seconds, type: INTEGER, unit: seconds, description: Time to drive the link at that speed. A few readings are negative and should be ignored.}
+      - {name: link_id, type: VARCHAR, nullable: false, description: "Road link. Joins to traffic_link."}
+      - {name: observed_at, type: TIMESTAMPTZ, nullable: false, description: "Time of the reading, published in New York time."}
+      - {name: speed_mph, type: DOUBLE, min: 0, max: 150, unit: miles per hour, description: "Average speed over the link."}
+      - {name: travel_time_seconds, type: INTEGER, unit: seconds, description: "Time to drive the link at that speed. A few readings are negative and should be ignored."}
       - {name: status_code, type: SMALLINT, nullable: false, description: "DOT status code. 0 for normal readings. Other values, mostly -101, mark readings DOT flags and should be treated with care."}
 
   - name: traffic_link
@@ -32,16 +32,16 @@ tables:
     primary_key: [link_id]
     write: merge
     columns:
-      - {name: link_id, type: VARCHAR, nullable: false, description: Road link id.}
+      - {name: link_id, type: VARCHAR, nullable: false, description: "Road link id."}
       - {name: link_name, type: VARCHAR, description: "DOT description, usually road, direction and end points, for example LIE WB LITTLE NECK PKWY - NB CIP."}
-      - {name: borough, type: VARCHAR, accepted: [Manhattan, Bronx, Brooklyn, Queens, Staten Island], description: Borough the link is in.}
-      - {name: owner, type: VARCHAR, description: Agency or region that runs the sensors.}
-      - {name: transcom_id, type: VARCHAR, description: Id of the link in TRANSCOM, the regional traffic operations network.}
-      - {name: geom, type: GEOMETRY, description: Path of the link as a line.}
-      - {name: length_m, type: DOUBLE, min: 0, unit: metres, description: Length of the path.}
-      - {name: mid_latitude, type: DOUBLE, description: Latitude of the point halfway along the path.}
-      - {name: mid_longitude, type: DOUBLE, description: Longitude of the point halfway along the path.}
-      - {name: last_reading_at, type: TIMESTAMPTZ, description: Latest reading the lake has for the link.}
-      - {name: nta_code, type: VARCHAR, description: Neighborhood Tabulation Area at the middle of the link.}
-      - {name: community_district, type: SMALLINT, description: Community district at the middle of the link.}
-      - {name: taxi_zone_id, type: SMALLINT, description: TLC taxi zone at the middle of the link.}
+      - {name: borough, type: VARCHAR, accepted: [Manhattan, Bronx, Brooklyn, Queens, Staten Island], description: "Borough the link is in."}
+      - {name: owner, type: VARCHAR, description: "Agency or region that runs the sensors."}
+      - {name: transcom_id, type: VARCHAR, description: "Id of the link in TRANSCOM, the regional traffic operations network."}
+      - {name: geom, type: GEOMETRY, description: "Path of the link as a line."}
+      - {name: length_m, type: DOUBLE, min: 0, unit: metres, description: "Length of the path."}
+      - {name: mid_latitude, type: DOUBLE, description: "Latitude of the point halfway along the path."}
+      - {name: mid_longitude, type: DOUBLE, description: "Longitude of the point halfway along the path."}
+      - {name: last_reading_at, type: TIMESTAMPTZ, description: "Latest reading the lake has for the link."}
+      - {name: nta_code, type: VARCHAR, description: "Neighborhood Tabulation Area at the middle of the link."}
+      - {name: community_district, type: SMALLINT, description: "Community district at the middle of the link."}
+      - {name: taxi_zone_id, type: SMALLINT, description: "TLC taxi zone at the middle of the link."}
