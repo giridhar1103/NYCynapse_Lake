@@ -1,0 +1,11 @@
+[Unit]
+Description=Schedule for NYCynapse lake load: citibike_trips
+
+[Timer]
+OnCalendar=*-*-* 08:30:00 UTC
+RandomizedDelaySec=20m
+Persistent=true
+Unit=nyc-lake@citibike_trips.service
+
+[Install]
+WantedBy=timers.target

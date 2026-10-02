@@ -1,0 +1,11 @@
+[Unit]
+Description=Schedule for NYCynapse lake load: dot_traffic
+
+[Timer]
+OnCalendar=*:3/15
+RandomizedDelaySec=1m
+Persistent=true
+Unit=nyc-lake@dot_traffic.service
+
+[Install]
+WantedBy=timers.target
