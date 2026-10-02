@@ -81,7 +81,7 @@ def _column(raw: dict, table: str) -> Column:
     try:
         col = Column(
             name=_ident(raw["name"], "column"),
-            type=str(raw["type"]).upper(),
+            type=str(raw["type"]).strip(),
             description=raw["description"],
             nullable=bool(raw.get("nullable", True)),
             unit=raw.get("unit"),

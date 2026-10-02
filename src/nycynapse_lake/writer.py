@@ -69,16 +69,16 @@ def _evolve(con: duckdb.DuckDBPyConnection, table: Table) -> None:
             if not c.nullable:
                 raise RuntimeError(f"{table.name}.{c.name} is new and NOT NULL, add it by hand")
             con.execute(f'ALTER TABLE {table.qualified} ADD COLUMN "{c.name}" {c.type}')
-        elif current[c.name] != c.type and not _same_type(current[c.name], c.type):
+        elif _canonical(con, c.type) != current[c.name]:
             raise RuntimeError(
                 f"{table.name}.{c.name} is {current[c.name]} in the lake "
                 f"but {c.type} in the contract"
             )
 
 
-def _same_type(a: str, b: str) -> bool:
-    aliases = {"TIMESTAMP WITH TIME ZONE": "TIMESTAMPTZ", "TEXT": "VARCHAR", "STRING": "VARCHAR"}
-    return aliases.get(a, a) == aliases.get(b, b)
+def _canonical(con: duckdb.DuckDBPyConnection, type_: str) -> str:
+    """The type name DuckDB reports for a declared type, so aliases compare equal."""
+    return con.execute(f"SELECT typeof(CAST(NULL AS {type_}))").fetchone()[0]
 
 
 def write(

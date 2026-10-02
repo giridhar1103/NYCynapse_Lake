@@ -30,7 +30,7 @@ def base(**table):
 
 def test_parses_and_normalises_types():
     c = parse(base())
-    assert c.table("thing").column("id").type == "INTEGER"
+    assert c.table("thing").column("id").type == "integer"
     assert c.table("thing").qualified == "lake.silver.thing"
 
 
