@@ -51,6 +51,36 @@ The MTA feed never says a train arrived. It lists, for every active train, the s
 
 Rows are written every five minutes as one run. If the write fails they go to a local spool and are replayed on the next flush, and trips in progress are saved to disk, so a restart or a deploy loses nothing. Outages of a feed or of the poller itself are written to `ops.feed_gaps`.
 
+## Gold layer
+
+`dbt/` builds the tables meant for querying into `lake.gold`. Every model and column is described in the YAML next to it, and those descriptions feed the semantic catalog in NYCynapse.Ai.
+
+| Kind | Models |
+|---|---|
+| Dimensions | `dim_date`, `dim_borough`, `dim_neighborhood`, `dim_community_district`, `dim_taxi_zone`, `dim_subway_route`, `dim_subway_station`, `dim_subway_complex`, `dim_bike_station`, `dim_traffic_link` |
+| Facts | `fct_rideshare_trip`, `fct_taxi_trip`, `fct_service_request`, `fct_collision`, `fct_collision_person`, `fct_weather_hourly`, `fct_weather_alert`, `fct_subway_arrival`, `fct_subway_stop_event`, `fct_subway_trip`, `fct_subway_alert`, `fct_subway_ridership_hourly`, `fct_bike_trip`, `fct_bike_station_status`, `fct_traffic_speed` |
+| Aggregates | `agg_trips_zone_hourly` |
+| Pipeline | `ops_source_freshness`, `ops_feed_gap` |
+
+The large trip facts are views over silver, so the 18 GB of trip files is not stored twice. `fct_subway_arrival` matches each observed arrival to the schedule in force that day, through the service calendar, and computes `delay_seconds`.
+
+Every fact has an instant column such as `pickup_at` and New York local columns such as `pickup_date` and `pickup_hour`. Group by the local columns, but filter time on the instant column with local boundaries:
+
+```sql
+where pickup_at >= timezone('America/New_York', timestamp '2025-06-01')
+  and pickup_at <  timezone('America/New_York', timestamp '2025-07-01')
+```
+
+On the 651 million app trips, that filter answers a month in half a second because whole files are skipped. The same filter written on `pickup_date` reads every file and takes three minutes.
+
+The ops tables refresh every 15 minutes, subway arrivals and weather hourly, and the full build with tests runs once a day after the nightly loads.
+
+```bash
+cd dbt && DBT_PROFILES_DIR=. ../.venv-dbt/bin/dbt build --selector daily
+```
+
+dbt runs in its own virtualenv (`.venv-dbt`) because it pins an older protobuf than the GTFS-realtime bindings need.
+
 ## Storage
 
 * DuckLake catalog in Postgres, data as Parquet files on local disk

@@ -32,3 +32,12 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: ruff check src tests
       - run: pytest -q
+      - name: dbt parse
+        working-directory: dbt
+        env:
+          NYC_LAKE_PG_DSN: dbname=x host=127.0.0.1 user=x password=x
+          DBT_PROFILES_DIR: .
+        run: |
+          python -m venv /tmp/dbt
+          /tmp/dbt/bin/pip install -q "dbt-duckdb>=1.9"
+          /tmp/dbt/bin/dbt parse
