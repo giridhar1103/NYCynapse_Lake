@@ -1,0 +1,81 @@
+source: subway_realtime
+version: 1
+domain: subway
+description: >
+  Train movements and service alerts derived from the MTA's GTFS-realtime subway feeds,
+  polled every 30 seconds. The feeds only say where each train is expected next. A tracker
+  follows every train between polls and writes one row when a train is seen to reach a stop.
+  Individual predictions are not kept, only what they resolved to. Capture began in October
+  2026; periods the poller missed are listed in ops.feed_gaps.
+cadence: every 30 seconds
+freshness_sla: 10 minutes
+upstream:
+  - https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs
+  - https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/camsys%2Fsubway-alerts.json
+
+tables:
+  - name: subway_stop_events
+    description: One row each time a train reached, skipped or never reached a stop on its trip.
+    grain: one row per trip per stop
+    primary_key: [trip_uid, stop_id]
+    write: append_new
+    event_time: arrived_at
+    partition_by: [service_date]
+    columns:
+      - {name: trip_uid, type: VARCHAR, nullable: false, description: "Service date and realtime trip id, for example 2026-10-02/087450_A..N55R."}
+      - {name: service_date, type: DATE, nullable: false, description: Service day the trip belongs to. Trips after midnight keep the previous day.}
+      - {name: trip_id, type: VARCHAR, nullable: false, description: Realtime trip id. Matches gtfs_trip.realtime_trip_id for scheduled trips.}
+      - {name: route_id, type: VARCHAR, nullable: false, description: Route, for example A or 7.}
+      - {name: direction, type: VARCHAR, accepted: [N, S], description: N uptown and toward the Bronx, S downtown and toward Brooklyn.}
+      - {name: stop_id, type: VARCHAR, nullable: false, description: Platform stop id, ending in N or S.}
+      - {name: station_id, type: VARCHAR, nullable: false, description: Parent station id, the stop id without its direction letter.}
+      - {name: outcome, type: VARCHAR, nullable: false, accepted: [arrived, skipped, unreached],
+         description: "arrived: the train reached the stop. skipped: the stop was dropped from the trip before the train got there, usually a reroute or express run. unreached: the trip left the feed before getting there."}
+      - {name: arrived_at, type: TIMESTAMPTZ, description: Best estimate of arrival. Empty unless outcome is arrived.}
+      - {name: departed_at, type: TIMESTAMPTZ, description: Last predicted departure before the stop left the feed.}
+      - {name: arrival_source, type: VARCHAR, accepted: [vehicle_stopped, last_prediction],
+         description: "vehicle_stopped when the train reported standing at the stop, which is the more exact signal. last_prediction otherwise."}
+      - {name: first_predicted_at, type: TIMESTAMPTZ, description: First arrival prediction seen for this stop.}
+      - {name: predictions_seen, type: SMALLINT, nullable: false, min: 0, description: Number of polls that carried a prediction for this stop.}
+      - {name: feed, type: VARCHAR, nullable: false, description: "Feed the trip was read from, for example ace or 1234567."}
+      - {name: recorded_at, type: TIMESTAMPTZ, nullable: false, description: When the tracker wrote the row.}
+
+  - name: subway_trips
+    description: One row per train trip the tracker saw from start to finish.
+    grain: one row per trip
+    primary_key: [trip_uid]
+    write: append_new
+    event_time: first_seen_at
+    partition_by: [service_date]
+    columns:
+      - {name: trip_uid, type: VARCHAR, nullable: false, description: Service date and realtime trip id.}
+      - {name: service_date, type: DATE, nullable: false, description: Service day.}
+      - {name: trip_id, type: VARCHAR, nullable: false, description: Realtime trip id.}
+      - {name: route_id, type: VARCHAR, nullable: false, description: Route.}
+      - {name: direction, type: VARCHAR, accepted: [N, S], description: Direction of travel.}
+      - {name: scheduled_start, type: VARCHAR, description: Scheduled departure from the origin, HH:MM:SS, as the feed gives it.}
+      - {name: first_seen_at, type: TIMESTAMPTZ, nullable: false, description: First poll the trip appeared in.}
+      - {name: last_seen_at, type: TIMESTAMPTZ, nullable: false, description: Last poll the trip appeared in.}
+      - {name: stops_arrived, type: SMALLINT, nullable: false, min: 0, description: Stops the train reached.}
+      - {name: stops_skipped, type: SMALLINT, nullable: false, min: 0, description: Stops dropped from the trip on the way.}
+      - {name: stops_unreached, type: SMALLINT, nullable: false, min: 0, description: Stops still ahead when the trip left the feed.}
+      - {name: feed, type: VARCHAR, nullable: false, description: Feed the trip was read from.}
+
+  - name: subway_alerts
+    description: Subway service alerts as last seen in the MTA feed.
+    grain: one row per alert
+    primary_key: [alert_id]
+    write: merge
+    event_time: created_at
+    columns:
+      - {name: alert_id, type: VARCHAR, nullable: false, description: MTA alert id.}
+      - {name: alert_type, type: VARCHAR, description: "MTA category, for example Delays, Planned - Part Suspended, Station Notice."}
+      - {name: header_text, type: VARCHAR, description: "Alert headline in English. Route names appear in brackets, like [E]."}
+      - {name: description_text, type: VARCHAR, description: Longer English description, when there is one.}
+      - {name: route_ids, type: "VARCHAR[]", description: Routes the alert names.}
+      - {name: stop_ids, type: "VARCHAR[]", description: Stops the alert names.}
+      - {name: active_periods, type: "STRUCT(starts_at TIMESTAMPTZ, ends_at TIMESTAMPTZ)[]", description: Periods the alert applies to. An empty end means until further notice.}
+      - {name: created_at, type: TIMESTAMPTZ, description: When the MTA created the alert.}
+      - {name: updated_at, type: TIMESTAMPTZ, description: When the MTA last changed it.}
+      - {name: first_seen_at, type: TIMESTAMPTZ, nullable: false, description: First poll that carried the alert.}
+      - {name: last_seen_at, type: TIMESTAMPTZ, nullable: false, description: Latest poll that carried the alert. Alerts drop out of the feed when they end.}
