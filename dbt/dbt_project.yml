@@ -1,0 +1,27 @@
+name: nycynapse
+version: "0.1.0"
+config-version: 2
+profile: nycynapse
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  nycynapse:
+    +database: lake
+    gold:
+      +schema: gold
+      +materialized: view
+      aggregates:
+        +materialized: table
+      ops:
+        +materialized: table
+
+seeds:
+  nycynapse:
+    +database: lake
+    +schema: gold

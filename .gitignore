@@ -9,3 +9,4 @@ dbt/target/
 dbt/logs/
 dbt/dbt_packages/
 .local/
+.venv-dbt/

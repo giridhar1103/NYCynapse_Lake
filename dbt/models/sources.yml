@@ -1,0 +1,52 @@
+version: 2
+sources:
+  - name: silver
+    database: lake
+    schema: silver
+    description: Typed, validated tables written by the ingestion jobs. One table per source entity.
+    tables:
+      - {name: tlc_zone}
+      - {name: geo_borough}
+      - {name: geo_nta}
+      - {name: geo_cdta}
+      - {name: geo_community_district}
+      - {name: geo_modzcta}
+      - {name: geo_council_district}
+      - {name: geo_police_precinct}
+      - {name: geo_taxi_zone}
+      - {name: geo_piece}
+      - {name: requests_311}
+      - {name: collision_crashes}
+      - {name: collision_persons}
+      - {name: weather_hourly}
+      - {name: weather_recent_hourly}
+      - {name: weather_alerts}
+      - {name: gtfs_feed_version}
+      - {name: gtfs_route}
+      - {name: gtfs_stop}
+      - {name: gtfs_trip}
+      - {name: gtfs_stop_time}
+      - {name: gtfs_calendar}
+      - {name: gtfs_calendar_date}
+      - {name: subway_stop_events}
+      - {name: subway_trips}
+      - {name: subway_alerts}
+      - {name: subway_ridership_hourly}
+      - {name: subway_station}
+      - {name: tlc_fhvhv_trips}
+      - {name: tlc_yellow_trips}
+      - {name: tlc_green_trips}
+      - {name: bike_trips}
+      - {name: bike_station}
+      - {name: bike_station_status}
+      - {name: traffic_speed_obs}
+      - {name: traffic_link}
+  - name: ops
+    database: ops_db
+    schema: ops
+    description: Control tables kept by the ingestion jobs in Postgres.
+    tables:
+      - {name: sources}
+      - {name: runs}
+      - {name: table_freshness}
+      - {name: feed_gaps}

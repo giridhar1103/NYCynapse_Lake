@@ -1,0 +1,26 @@
+nycynapse:
+  target: prod
+  outputs:
+    prod:
+      type: duckdb
+      path: ":memory:"
+      extensions: [ducklake, postgres, spatial]
+      attach:
+        - path: "ducklake:postgres:{{ env_var('NYC_LAKE_PG_DSN') }}"
+          alias: lake
+          options:
+            metadata_schema: ducklake
+            data_path: "{{ env_var('NYC_LAKE_DATA_PATH', '/srv/nycynapse/lake') }}/"
+        - path: "{{ env_var('NYC_LAKE_PG_DSN') }}"
+          alias: ops_db
+          type: postgres
+          read_only: true
+      database: lake
+      schema: gold
+      threads: 1
+      settings:
+        memory_limit: "{{ env_var('NYC_LAKE_MEMORY_LIMIT', '1GB') }}"
+        threads: 2
+        TimeZone: UTC
+        preserve_insertion_order: false
+        temp_directory: "{{ env_var('NYC_LAKE_TMP_PATH', '/srv/nycynapse/tmp') }}/dbt"

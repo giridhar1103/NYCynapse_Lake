@@ -1,0 +1,12 @@
+version: 2
+seeds:
+  - name: us_federal_holidays
+    description: US federal holidays, on the day they are observed, 2024 to 2027.
+    config:
+      column_types: {holiday_date: date, holiday_name: varchar}
+    columns:
+      - name: holiday_date
+        description: Day the holiday is observed. Weekend holidays move to the nearest weekday.
+        data_tests: [unique, not_null]
+      - name: holiday_name
+        description: Holiday name.
