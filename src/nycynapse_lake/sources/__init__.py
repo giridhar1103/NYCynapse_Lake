@@ -10,6 +10,7 @@ MODULES = {
     "nyc_geo": "nycynapse_lake.sources.nyc_geo",
     "nyc_311": "nycynapse_lake.sources.nyc_311",
     "nyc_collisions": "nycynapse_lake.sources.nyc_collisions",
+    "weather": "nycynapse_lake.sources.weather",
 }
 
 
