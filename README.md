@@ -1,8 +1,42 @@
 # NYCynapse Lake
 
+[![ci](https://github.com/giridhar1103/NYCynapse_Lake/actions/workflows/ci.yml/badge.svg)](https://github.com/giridhar1103/NYCynapse_Lake/actions/workflows/ci.yml)
+
 The data side of NYCynapse. It pulls New York City transport and city data on each source's own schedule, checks it against a contract, and writes typed tables into a [DuckLake](https://ducklake.select/) lakehouse. The query side lives in [NYCynapse.Ai](https://github.com/giridhar1103/NYCynapse.Ai).
 
 History starts in January 2024 and grows from there.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/architecture-dark.svg">
+  <img alt="Sources flow through batch loaders and live pollers, then contract checks and idempotent writes, into DuckLake silver and gold tables used by NYCynapse.Ai" src="docs/img/architecture-light.svg">
+</picture>
+
+## What is in it
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/trips-per-day-dark.png">
+  <img alt="Weekly average trips per day for Uber, Lyft and yellow taxis from January 2024 to August 2026" src="docs/img/trips-per-day-light.png">
+</picture>
+
+Every Uber, Lyft and taxi trip the city publishes since January 2024, about 768 million so far. Uber runs near half a million trips a day, more than four times yellow taxis.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/subway-delays-dark.png">
+  <img alt="Histogram of subway arrival delays against the schedule" src="docs/img/subway-delays-light.png">
+</picture>
+
+The MTA never publishes when a train actually arrived, only where each train is expected next. The lake follows every train between 30-second polls and records the moment it reaches each stop, then lines that up with the timetable in force that day.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/img/noise-map-dark.png">
+    <img alt="Map of 311 noise complaints per square mile by neighborhood" src="docs/img/noise-map-light.png" width="620">
+  </picture>
+</p>
+
+Every 311 request, crash, station and bike ride is tagged with its neighborhood, borough, community district, ZIP area, council district, precinct and taxi zone as it is loaded, so maps like this one are a plain `GROUP BY`.
+
+The charts are drawn from the live lake by [`docs/make_charts.py`](docs/make_charts.py) and the diagram by [`docs/make_architecture.py`](docs/make_architecture.py).
 
 ## Sources
 
@@ -17,15 +51,21 @@ History starts in January 2024 and grows from there.
 | Weather | Open-Meteo hourly weather, National Weather Service alerts | hourly, every 5 minutes |
 | Geography | NTAs, community districts, ZIP areas, council districts, precincts | checked monthly |
 
-Geography, weather, weather alerts, 311, collisions, the subway schedule, live subway movements, subway alerts, ridership and TLC trips are live. Citi Bike and traffic come next.
+Every source above is live. Row counts on 3 October 2026, with Citi Bike trips and subway ridership still backfilling:
 
-| Table | Rows (October 2026) |
+| Table | Rows |
 |---|---|
+| `tlc_fhvhv_trips` (Uber, Lyft and others) | 651 million |
+| `tlc_yellow_trips`, `tlc_green_trips` | 120 million, 1.6 million |
+| `bike_trips` | 55 million and growing |
+| `subway_ridership_hourly` | 45 million and growing |
+| `traffic_speed_obs` | 34 million |
 | `requests_311` | 10.1 million |
 | `collision_crashes`, `collision_persons` | 213 thousand, 733 thousand |
-| `weather_hourly` | 120 thousand |
-| `weather_alerts` | 1.1 thousand |
-| boundary tables | 975 polygons |
+| `weather_hourly`, `weather_alerts` | 120 thousand, 1.1 thousand |
+| `subway_stop_events`, `bike_station_status` | live since 2 October 2026 |
+| subway schedule (`gtfs_*`) | 740 thousand per version |
+| boundaries | 975 polygons, cut into 13 thousand pieces for tagging |
 
 ## How a load works
 
