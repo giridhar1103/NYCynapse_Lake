@@ -1,0 +1,185 @@
+source: nyc_311
+version: 1
+domain: city_services
+description: >
+  NYC 311 service requests from NYC Open Data (dataset erm2-nwe9), from January 2024 on.
+  Requests change after they are filed (status, closing date, resolution), so loads merge on
+  the request id and keep the newest version.
+cadence: daily
+freshness_sla: 3 days
+upstream:
+  - https://data.cityofnewyork.us/resource/erm2-nwe9
+
+tables:
+  - name: requests_311
+    description: One row per 311 service request, in its latest known state.
+    grain: one row per service request
+    primary_key: [unique_key]
+    write: merge
+    version_column: source_updated_at
+    event_time: created_at
+    partition_by: [year(created_at), month(created_at)]
+    max_reject_rate: 0.001
+    columns:
+      - name: unique_key
+        type: BIGINT
+        nullable: false
+        description: Service request id.
+      - name: created_at
+        type: TIMESTAMPTZ
+        nullable: false
+        description: When the request was filed. Published in New York local time, stored as an instant.
+      - name: closed_at
+        type: TIMESTAMPTZ
+        description: When the responding agency closed the request. Empty while it is open.
+      - name: due_at
+        type: TIMESTAMPTZ
+        description: When the agency is expected to update the request, set from the complaint type.
+      - name: resolution_updated_at
+        type: TIMESTAMPTZ
+        description: When the agency last updated the resolution.
+      - name: status
+        type: VARCHAR
+        nullable: false
+        description: Request status, for example Open, In Progress, Closed.
+      - name: agency
+        type: VARCHAR
+        nullable: false
+        description: Acronym of the responding agency, for example NYPD, DSNY, HPD.
+      - name: agency_name
+        type: VARCHAR
+        description: Full name of the responding agency.
+      - name: complaint_type
+        type: VARCHAR
+        nullable: false
+        description: Top level of the problem hierarchy, for example "Noise - Residential".
+      - name: descriptor
+        type: VARCHAR
+        description: Second level of the problem hierarchy, for example "Loud Music/Party".
+      - name: descriptor_2
+        type: VARCHAR
+        description: Third level of detail, when the agency uses one.
+      - name: location_type
+        type: VARCHAR
+        description: Kind of place, for example "Residential Building/House" or "Street/Sidewalk".
+      - name: resolution_description
+        type: VARCHAR
+        description: Last action the agency reported.
+      - name: channel
+        type: VARCHAR
+        accepted: [online, phone, mobile, unknown, other]
+        description: How the request reached 311.
+      - name: borough
+        type: VARCHAR
+        accepted: [Manhattan, Bronx, Brooklyn, Queens, Staten Island]
+        description: Borough as reported and geovalidated by 311. Empty when 311 marks it unspecified.
+      - name: incident_zip
+        type: VARCHAR
+        description: ZIP code from 311 geovalidation.
+      - name: incident_address
+        type: VARCHAR
+        description: Address given for the incident.
+      - name: street_name
+        type: VARCHAR
+        description: Street name given for the incident.
+      - name: cross_street_1
+        type: VARCHAR
+        description: First cross street.
+      - name: cross_street_2
+        type: VARCHAR
+        description: Second cross street.
+      - name: intersection_street_1
+        type: VARCHAR
+        description: First street of an intersection location.
+      - name: intersection_street_2
+        type: VARCHAR
+        description: Second street of an intersection location.
+      - name: address_type
+        type: VARCHAR
+        description: ADDRESS, INTERSECTION, BLOCKFACE, PLACENAME or UNRECOGNIZED.
+      - name: city
+        type: VARCHAR
+        description: City or postal place name from geovalidation, for example ASTORIA.
+      - name: landmark
+        type: VARCHAR
+        description: Landmark name, when the location is one.
+      - name: facility_type
+        type: VARCHAR
+        description: Type of city facility involved, when there is one.
+      - name: bbl
+        type: VARCHAR
+        description: Borough, block and lot of the parcel.
+      - name: reported_community_board
+        type: VARCHAR
+        description: Community board as 311 assigned it, for example "10 BROOKLYN".
+      - name: reported_council_district
+        type: TINYINT
+        description: Council district as 311 assigned it. See council_district for the lake's own tag.
+      - name: reported_police_precinct
+        type: SMALLINT
+        description: Precinct as 311 assigned it. See police_precinct for the lake's own tag.
+      - name: x_state_plane
+        type: INTEGER
+        description: X coordinate in New York State Plane (Long Island), feet.
+      - name: y_state_plane
+        type: INTEGER
+        description: Y coordinate in New York State Plane (Long Island), feet.
+      - name: latitude
+        type: DOUBLE
+        min: 40.4
+        max: 41.0
+        description: Latitude of the incident.
+      - name: longitude
+        type: DOUBLE
+        min: -74.3
+        max: -73.6
+        description: Longitude of the incident.
+      - name: park_facility_name
+        type: VARCHAR
+        description: Parks facility, when the request concerns one.
+      - name: vehicle_type
+        type: VARCHAR
+        description: TLC vehicle type, for taxi complaints.
+      - name: taxi_company_borough
+        type: VARCHAR
+        description: Borough of the taxi company, for taxi complaints.
+      - name: taxi_pick_up_location
+        type: VARCHAR
+        description: Pickup location, for taxi complaints.
+      - name: bridge_highway_name
+        type: VARCHAR
+        description: Bridge or highway, for requests located on one.
+      - name: bridge_highway_direction
+        type: VARCHAR
+        description: Direction of travel on the bridge or highway.
+      - name: road_ramp
+        type: VARCHAR
+        description: Whether the location is a roadway or a ramp.
+      - name: bridge_highway_segment
+        type: VARCHAR
+        description: Section of the bridge or highway.
+      - name: boro_code
+        type: TINYINT
+        description: Borough the coordinates fall in, from the lake's boundary files.
+      - name: nta_code
+        type: VARCHAR
+        description: 2020 Neighborhood Tabulation Area the coordinates fall in.
+      - name: community_district
+        type: SMALLINT
+        description: Community district the coordinates fall in (borough code times 100 plus number).
+      - name: modzcta
+        type: VARCHAR
+        description: Modified ZIP Code Tabulation Area the coordinates fall in.
+      - name: council_district
+        type: TINYINT
+        description: Council district the coordinates fall in.
+      - name: police_precinct
+        type: SMALLINT
+        description: Police precinct the coordinates fall in.
+      - name: taxi_zone_id
+        type: SMALLINT
+        description: TLC taxi zone the coordinates fall in.
+      - name: source_updated_at
+        type: TIMESTAMPTZ
+        nullable: false
+        description: When NYC Open Data last changed this row. Used to keep the newest version.

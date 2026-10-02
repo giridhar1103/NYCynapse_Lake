@@ -54,6 +54,14 @@ class RunContext:
         value = self.ctl.get_checkpoint(self.source, key)
         return default if value is None else value
 
+    def save(self, key: str, value) -> None:
+        """Persist a checkpoint right away. Call it only after the data it covers is committed.
+
+        Long backfills use this so a crash halfway through does not start them over.
+        """
+        self.ctl.set_checkpoints(self.source, {key: value}, self.run_id)
+        self._checkpoints.pop(key, None)
+
     def advance(self, key: str, value) -> None:
         """Stage a checkpoint. It is saved only if the whole run succeeds."""
         self._checkpoints[key] = value
