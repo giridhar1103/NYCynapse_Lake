@@ -10,14 +10,14 @@ History starts in January 2024 and grows from there.
 |---|---|---|
 | Rideshare and taxi | TLC high volume FHV, yellow and green trip records, taxi zones | monthly |
 | Bike | Citi Bike trip history, Citi Bike GBFS station feeds | monthly, every minute |
-| Subway | MTA GTFS schedule, GTFS-realtime trip updates, service alerts, hourly ridership | weekly, every 30 seconds, every minute, weekly |
+| Subway | MTA GTFS schedule, GTFS-realtime trip updates, service alerts, hourly ridership, station list | daily check, every 30 seconds, every minute, weekly |
 | City services | NYC 311 service requests | daily |
 | Safety | NYPD motor vehicle collisions | daily |
 | Traffic | NYC DOT traffic speeds | every few minutes |
 | Weather | Open-Meteo hourly weather, National Weather Service alerts | hourly, every 5 minutes |
 | Geography | NTAs, community districts, ZIP areas, council districts, precincts | checked monthly |
 
-Geography, weather, weather alerts, 311 and collisions are live. Transit, TLC trips, Citi Bike and traffic come next.
+Geography, weather, weather alerts, 311, collisions, the subway schedule, live subway movements, subway alerts, ridership and TLC trips are live. Citi Bike and traffic come next.
 
 | Table | Rows (October 2026) |
 |---|---|
@@ -39,7 +39,17 @@ Rows with coordinates are tagged during the load with their borough, neighborhoo
 
 Every row carries `_source`, `_load_id`, `_ingested_at` and `_contract_version`, and every commit is a DuckLake snapshot tagged with its load id. Any table can be read as it was at an earlier snapshot.
 
-Since raw payloads are not stored, replay works in two ways. Batch sources are re-downloaded from upstream, and the exact file used for each load is recorded by URL, ETag and SHA-256. Live feeds have no upstream archive, so their silver tables keep every field the feed sends.
+Since raw payloads are not stored, replay works in two ways. Batch sources are re-downloaded from upstream, and the exact file used for each load is recorded by URL, ETag and SHA-256. Live feeds have no upstream archive. Alert and station feeds keep every field they send. Subway realtime is different: it sends a full set of predictions for every train every 30 seconds, and keeping those would mean hundreds of millions of rows a day that say almost the same thing. The tracker keeps what they resolve to instead, one row per train per stop.
+
+## Subway realtime
+
+The MTA feed never says a train arrived. It lists, for every active train, the stops it has not left yet and when it is expected at each. The poller reads all eight feeds every 30 seconds and keeps each train's stops in memory. When a stop drops off a train's list, the train has left it:
+
+* if the last prediction for that stop was already due, or the train reported standing there, it **arrived**
+* if the stop vanished while still in the future, it was **skipped** (reroutes, trains running express)
+* when a whole trip leaves the feed, its remaining stops are **unreached**, and a one-row trip summary is written
+
+Rows are written every five minutes as one run. If the write fails they go to a local spool and are replayed on the next flush, and trips in progress are saved to disk, so a restart or a deploy loses nothing. Outages of a feed or of the poller itself are written to `ops.feed_gaps`.
 
 ## Storage
 
@@ -50,7 +60,7 @@ Since raw payloads are not stored, replay works in two ways. Batch sources are r
 
 ## Scheduling
 
-Each source runs as a one-shot systemd service on its own timer: alerts every 5 minutes, weather hourly, 311 and collisions daily, boundaries monthly. A service exits with code 75 when its source is already running or its circuit breaker is open, and systemd treats that as success. A daily maintenance job compacts small files, expires snapshots older than 30 days (except ones pinned in `ops.pinned_snapshots`) and purges old quarantine rows.
+Each batch source runs as a one-shot systemd service on its own timer: weather alerts every 5 minutes, weather hourly, 311, collisions, TLC and the subway schedule daily, ridership weekly, boundaries monthly. The subway poller runs as a long-lived service that restarts itself. A service exits with code 75 when its source is already running or its circuit breaker is open, and systemd treats that as success. A daily maintenance job compacts small files, expires snapshots older than 30 days (except ones pinned in `ops.pinned_snapshots`) and purges old quarantine rows.
 
 ```bash
 sudo ./deploy/install.sh
@@ -93,6 +103,7 @@ src/nycynapse_lake/
   writer.py                idempotent writes and schema evolution
   runs.py                  run lifecycle, checkpoints, coverage
   spool.py                 local buffer for live feeds when the lake is unavailable
+  realtime/                subway train tracker and the poller that runs it
   maintain.py              compaction, snapshot expiry, quarantine purge
   control/                 Postgres ops tables and migrations
   sources/                 one module per source
