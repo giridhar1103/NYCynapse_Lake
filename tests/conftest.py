@@ -18,6 +18,7 @@ def settings(tmp_path):
         data_path=tmp_path / "lake",
         tmp_path=tmp_path / "tmp",
         spool_path=tmp_path / "spool",
+        state_path=tmp_path / "state",
         memory_limit="512MB",
         catalog_override=str(tmp_path / "catalog.ducklake"),
     )
