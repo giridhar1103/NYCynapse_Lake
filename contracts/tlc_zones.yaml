@@ -1,0 +1,48 @@
+source: tlc_zones
+version: 1
+domain: geography
+description: >
+  Taxi zone lookup published by the NYC Taxi and Limousine Commission. Every TLC trip record
+  refers to pickup and dropoff locations by these zone ids.
+cadence: monthly
+freshness_sla: 45 days
+upstream:
+  - https://d37ci6vzurychx.cloudfront.net/misc/taxi_zone_lookup.csv
+
+tables:
+  - name: tlc_zone
+    description: One row per TLC taxi zone, with its borough and service zone.
+    grain: one row per zone
+    primary_key: [location_id]
+    write: replace_all
+    min_rows: 260
+    max_reject_rate: 0
+    columns:
+      - name: location_id
+        type: SMALLINT
+        nullable: false
+        min: 1
+        max: 265
+        description: TLC zone id, as used in PULocationID and DOLocationID on trip records.
+      - name: zone_name
+        type: VARCHAR
+        nullable: false
+        description: Zone name as TLC publishes it, for example "Midtown Center".
+      - name: borough
+        type: VARCHAR
+        accepted: [Bronx, Brooklyn, Manhattan, Queens, Staten Island]
+        description: NYC borough. Empty for Newark Airport and for the two placeholder zones.
+      - name: service_zone
+        type: VARCHAR
+        accepted: [Boro Zone, Yellow Zone, Airports, EWR]
+        description: >
+          TLC service area. Yellow Zone is where yellow cabs may pick up street hails,
+          Boro Zone is the green cab area. Empty for the placeholder zones.
+      - name: zone_kind
+        type: VARCHAR
+        nullable: false
+        accepted: [nyc, newark_airport, unknown, outside_nyc]
+        description: >
+          nyc for zones inside the five boroughs, newark_airport for zone 1, unknown for
+          zone 264 and outside_nyc for zone 265. TLC uses the last two when a location
+          could not be placed.
