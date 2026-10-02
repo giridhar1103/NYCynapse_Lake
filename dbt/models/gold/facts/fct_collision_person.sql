@@ -1,0 +1,20 @@
+select
+    person_record_id,
+    collision_id,
+    {{ ny_parts('crashed_at', 'crash') }},
+    lower(person_type)                              as person_type,
+    lower(person_injury)                            as injury,
+    person_injury = 'Killed'                        as was_killed,
+    person_injury = 'Injured'                       as was_injured,
+    person_age                                      as age,
+    person_sex                                      as sex,
+    ped_role                                        as role,
+    position_in_vehicle,
+    safety_equipment,
+    ejection,
+    bodily_injury,
+    complaint                                       as injury_type,
+    ped_location                                    as pedestrian_location,
+    ped_action                                      as pedestrian_action,
+    contributing_factor_1                           as contributing_factor
+from {{ source('silver', 'collision_persons') }}

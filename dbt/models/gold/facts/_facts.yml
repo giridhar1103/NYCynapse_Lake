@@ -1,0 +1,434 @@
+version: 2
+
+# Every fact has an instant column (ending in _at, stored in UTC) and local New York columns
+# (_at_local, _date, _hour). Group and display by the local columns. Filter time ranges on the
+# instant column with local boundaries, for example
+#   pickup_at >= timezone('America/New_York', TIMESTAMP '2025-06-01')
+# because only the instant column lets the engine skip files. Filtering on the local date
+# alone scans the whole table.
+
+models:
+  - name: fct_rideshare_trip
+    description: >
+      Trips by Uber, Lyft and the other app-based for-hire companies, one row per trip, from TLC
+      monthly files since January 2024 (about 20 million a month). Includes what the rider paid,
+      tips, what the driver was paid and how long the rider waited.
+    meta: {domain: rideshare_taxi, grain: one row per trip, time_column: pickup_at,
+           local_date_column: pickup_date, partition_column: file_month}
+    columns:
+      - {name: company, description: "Uber, Lyft, Via or Juno. Almost all trips are Uber or Lyft."}
+      - {name: file_month, description: "Month of the TLC file. Filtering on it also skips files."}
+      - {name: pickup_at_local, description: "Pickup time in New York."}
+      - name: pickup_date
+        description: Pickup date in New York.
+        data_tests: [not_null]
+      - {name: pickup_hour, description: "Pickup hour in New York, 0 to 23."}
+      - {name: pickup_at, description: "Pickup instant. Filter time ranges on this column."}
+      - {name: dropoff_at, description: "Dropoff instant."}
+      - {name: requested_at_local, description: "When the rider asked for the ride, New York time."}
+      - name: pickup_zone_id
+        description: Pickup taxi zone.
+        data_tests: [{relationships: {arguments: {to: ref('dim_taxi_zone'), field: zone_id}}}]
+      - {name: dropoff_zone_id, description: "Dropoff taxi zone."}
+      - {name: trip_miles, description: "Miles driven with the rider."}
+      - {name: trip_minutes, description: "Minutes from pickup to dropoff."}
+      - {name: wait_minutes, description: "Minutes from request to pickup: how long the rider waited. Empty when the request time is missing."}
+      - {name: base_fare_usd, description: "Fare before tolls, fees, taxes and tip."}
+      - {name: tolls_usd, description: "Tolls."}
+      - {name: sales_tax_usd, description: "Sales tax."}
+      - {name: black_car_fund_usd, description: "Black Car Fund surcharge."}
+      - {name: congestion_surcharge_usd, description: "State congestion surcharge for trips through Manhattan below 96th Street."}
+      - {name: airport_fee_usd, description: "Airport pickup or dropoff fee."}
+      - {name: cbd_congestion_fee_usd, description: "Congestion relief zone toll passed to the rider. Charged from 5 January 2025."}
+      - {name: tips_usd, description: "Tip."}
+      - {name: driver_pay_usd, description: "What the driver was paid, before tips."}
+      - {name: rider_paid_usd, description: "Everything the rider paid except the tip: fare, tolls, taxes and fees."}
+      - {name: shared_requested, description: "Rider asked to share."}
+      - {name: shared_matched, description: "Ride was shared."}
+      - {name: access_a_ride, description: "Trip for MTA Access-A-Ride."}
+      - {name: wav_requested, description: "Rider asked for a wheelchair accessible vehicle."}
+      - {name: wav_matched, description: "Trip was in a wheelchair accessible vehicle."}
+      - {name: is_plausible, description: "False for trips with impossible times, distances or fares. Exclude those from averages."}
+
+  - name: fct_taxi_trip
+    description: Yellow and green taxi trips, one row per trip, from TLC monthly files since January 2024.
+    meta: {domain: rideshare_taxi, grain: one row per trip, time_column: pickup_at,
+           local_date_column: pickup_date, partition_column: file_month}
+    columns:
+      - name: taxi_type
+        description: yellow or green.
+        data_tests: [{accepted_values: {arguments: {values: [yellow, green]}}}]
+      - {name: file_month, description: "Month of the TLC file."}
+      - {name: pickup_at_local, description: "Pickup time in New York."}
+      - {name: pickup_date, description: "Pickup date in New York."}
+      - {name: pickup_hour, description: "Pickup hour in New York."}
+      - {name: pickup_at, description: "Pickup instant. Filter time ranges on this column."}
+      - {name: dropoff_at, description: "Dropoff instant."}
+      - {name: pickup_zone_id, description: "Pickup taxi zone."}
+      - {name: dropoff_zone_id, description: "Dropoff taxi zone."}
+      - {name: passenger_count, description: "Passengers entered by the driver."}
+      - {name: trip_miles, description: "Metered miles."}
+      - {name: trip_minutes, description: "Minutes from pickup to dropoff."}
+      - {name: payment_type, description: "credit card, cash, no charge, dispute, flex fare, unknown or voided."}
+      - {name: rate_type, description: "standard, JFK flat fare, Newark, Nassau or Westchester, negotiated, group ride or unknown."}
+      - {name: is_street_hail, description: "Green taxis only. True for street hails, false for dispatched trips."}
+      - {name: fare_usd, description: "Metered fare."}
+      - {name: extra_usd, description: "Rush hour and overnight surcharges."}
+      - {name: mta_tax_usd, description: "MTA tax."}
+      - {name: tip_usd, description: "Tip. Only card tips are recorded, so cash trips show no tip."}
+      - {name: tolls_usd, description: "Tolls."}
+      - {name: improvement_surcharge_usd, description: "Improvement surcharge."}
+      - {name: congestion_surcharge_usd, description: "State congestion surcharge."}
+      - {name: airport_fee_usd, description: "Airport fee. Yellow taxis only."}
+      - {name: cbd_congestion_fee_usd, description: "Congestion relief zone toll. Charged from 5 January 2025."}
+      - {name: total_usd, description: "Total charged, without cash tips."}
+      - {name: is_plausible, description: "False for trips with impossible times, distances or totals."}
+
+  - name: fct_service_request
+    description: >
+      311 service requests since January 2024, one row per request in its latest state.
+      Complaints about noise, heat, parking, streets and more, with the agency that handled them.
+    meta: {domain: city_services, grain: one row per request, time_column: created_at,
+           local_date_column: created_date}
+    columns:
+      - name: request_id
+        description: 311 request id.
+        data_tests: [unique, not_null]
+      - {name: created_at_local, description: "When the request was filed, New York time."}
+      - {name: created_date, description: "Date filed, New York time."}
+      - {name: created_hour, description: "Hour filed, New York time."}
+      - {name: created_at, description: "Instant the request was filed. Filter time ranges on this column."}
+      - {name: closed_at, description: "Instant the agency closed it."}
+      - {name: closed_at_local, description: "Closing time in New York."}
+      - {name: hours_to_close, description: "Hours from filing to closing. Empty while open."}
+      - {name: status, description: "Open, In Progress, Assigned, Pending, Started or Closed."}
+      - {name: is_closed, description: "True once closed."}
+      - {name: agency, description: "Agency acronym, for example NYPD, DSNY (Sanitation), HPD (Housing), DOT."}
+      - {name: agency_name, description: "Agency full name."}
+      - {name: complaint_type, description: "Top level problem, for example 'Noise - Residential', 'HEAT/HOT WATER', 'Illegal Parking'. Capitalization varies by agency."}
+      - {name: descriptor, description: "Detail under the complaint type, for example 'Loud Music/Party' or 'Banging/Pounding'."}
+      - {name: descriptor_2, description: "Third level of detail, when used."}
+      - {name: location_type, description: "Kind of place, for example Residential Building/House, Street/Sidewalk."}
+      - {name: channel, description: "How it was filed: online, phone, mobile, unknown or other."}
+      - {name: resolution_description, description: "Last action reported by the agency."}
+      - {name: borough, description: "Borough as 311 recorded it."}
+      - {name: boro_code, description: "Borough the location falls in."}
+      - {name: nta_code, description: "Neighborhood the location falls in."}
+      - {name: community_district, description: "Community district the location falls in."}
+      - {name: council_district, description: "Council district the location falls in."}
+      - {name: police_precinct, description: "Police precinct the location falls in."}
+      - {name: taxi_zone_id, description: "Taxi zone the location falls in."}
+      - {name: incident_zip, description: "ZIP code as 311 recorded it."}
+      - {name: modzcta, description: "ZIP area the location falls in."}
+      - {name: incident_address, description: "Address given."}
+      - {name: street_name, description: "Street name given."}
+      - {name: latitude, description: "Latitude."}
+      - {name: longitude, description: "Longitude."}
+
+  - name: fct_collision
+    description: >
+      Motor vehicle crashes reported by NYPD since January 2024, one row per crash, with people
+      hurt and killed by road user type. NYPD publishes with a delay of up to a few months.
+    meta: {domain: safety, grain: one row per crash, time_column: crashed_at,
+           local_date_column: crash_date}
+    columns:
+      - name: collision_id
+        description: Crash id.
+        data_tests: [unique, not_null]
+      - {name: crash_at_local, description: "Crash time in New York."}
+      - {name: crash_date, description: "Crash date."}
+      - {name: crash_hour, description: "Crash hour."}
+      - {name: crashed_at, description: "Crash instant. Filter time ranges on this column."}
+      - {name: persons_injured, description: "Everyone injured."}
+      - {name: persons_killed, description: "Everyone killed."}
+      - {name: pedestrians_injured, description: "Pedestrians injured."}
+      - {name: pedestrians_killed, description: "Pedestrians killed."}
+      - {name: cyclists_injured, description: "Cyclists injured."}
+      - {name: cyclists_killed, description: "Cyclists killed."}
+      - {name: motorists_injured, description: "Vehicle occupants injured."}
+      - {name: motorists_killed, description: "Vehicle occupants killed."}
+      - {name: has_injury, description: "At least one person injured."}
+      - {name: has_fatality, description: "At least one person killed."}
+      - {name: involves_pedestrian_harm, description: "A pedestrian was hurt or killed."}
+      - {name: involves_cyclist_harm, description: "A cyclist was hurt or killed."}
+      - {name: primary_factor, description: "Contributing factor for the first vehicle, for example 'Driver Inattention/Distraction'. 'Unspecified' is common."}
+      - {name: contributing_factor_2, description: "Contributing factor for the second vehicle."}
+      - {name: vehicle_type_1, description: "First vehicle type, free text."}
+      - {name: vehicle_type_2, description: "Second vehicle type, free text."}
+      - {name: on_street_name, description: "Street of the crash."}
+      - {name: cross_street_name, description: "Nearest cross street."}
+      - {name: borough, description: "Borough, from NYPD or from the coordinates."}
+      - {name: boro_code, description: "Borough the location falls in."}
+      - {name: nta_code, description: "Neighborhood."}
+      - {name: community_district, description: "Community district."}
+      - {name: council_district, description: "Council district."}
+      - {name: police_precinct, description: "Police precinct."}
+      - {name: taxi_zone_id, description: "Taxi zone."}
+      - {name: zip_code, description: "ZIP code as recorded."}
+      - {name: latitude, description: "Latitude."}
+      - {name: longitude, description: "Longitude."}
+
+  - name: fct_collision_person
+    description: People involved in reported crashes, hurt or not, one row per person.
+    meta: {domain: safety, grain: one row per person per crash, local_date_column: crash_date}
+    columns:
+      - {name: person_record_id, description: "Person record id.", data_tests: [unique, not_null]}
+      - name: collision_id
+        description: Crash. Joins to fct_collision.
+        data_tests: [{relationships: {arguments: {to: ref('fct_collision'), field: collision_id}, config: {severity: warn}}}]
+      - {name: crash_at_local, description: "Crash time in New York."}
+      - {name: crash_date, description: "Crash date."}
+      - {name: crash_hour, description: "Crash hour."}
+      - {name: person_type, description: "pedestrian, bicyclist, occupant or other motorized."}
+      - {name: injury, description: "killed, injured or unspecified."}
+      - {name: was_killed, description: "The person was killed."}
+      - {name: was_injured, description: "The person was injured."}
+      - {name: age, description: "Age in years. Empty when unknown."}
+      - {name: sex, description: "M, F or U."}
+      - {name: role, description: "Driver, Passenger, Pedestrian, Registrant and so on."}
+      - {name: position_in_vehicle, description: "Seat position for occupants."}
+      - {name: safety_equipment, description: "Belt, helmet or other equipment recorded."}
+      - {name: ejection, description: "Whether the person was thrown from the vehicle."}
+      - {name: bodily_injury, description: "Body part injured."}
+      - {name: injury_type, description: "Type of injury, for example Complaint of Pain, Fracture."}
+      - {name: pedestrian_location, description: "Where a pedestrian was."}
+      - {name: pedestrian_action, description: "What a pedestrian was doing."}
+      - {name: contributing_factor, description: "Contributing factor recorded for this person."}
+
+  - name: fct_weather_hourly
+    description: >
+      Hourly weather for one point in each borough since January 2024, from Open-Meteo. Settled
+      archive values for history and model values for the last few days and the next day.
+    meta: {domain: weather, grain: one row per borough per hour, time_column: hour_start,
+           local_date_column: hour_date}
+    columns:
+      - {name: boro_code, description: "Borough code."}
+      - {name: borough, description: "Borough."}
+      - {name: hour_start, description: "Start of the hour as an instant."}
+      - {name: hour_at_local, description: "Start of the hour in New York."}
+      - {name: hour_date, description: "Date in New York."}
+      - {name: hour_hour, description: "Hour of day in New York, 0 to 23."}
+      - {name: temperature_c, description: "Temperature in Celsius."}
+      - {name: temperature_f, description: "Temperature in Fahrenheit."}
+      - {name: feels_like_f, description: "Feels-like temperature in Fahrenheit, with wind chill and humidity."}
+      - {name: dew_point_f, description: "Dew point in Fahrenheit."}
+      - {name: relative_humidity_pct, description: "Relative humidity, percent."}
+      - {name: precipitation_mm, description: "Precipitation in the hour, millimetres."}
+      - {name: precipitation_in, description: "Precipitation in the hour, inches."}
+      - {name: rain_mm, description: "Liquid rain in the hour, millimetres."}
+      - {name: snowfall_cm, description: "New snow in the hour, centimetres."}
+      - {name: snowfall_in, description: "New snow in the hour, inches."}
+      - {name: snow_depth_in, description: "Snow on the ground, inches."}
+      - {name: weather_code, description: "WMO weather code."}
+      - {name: condition, description: "clear, cloudy, fog, drizzle, rain, snow, thunderstorm or other."}
+      - {name: is_wet_hour, description: "At least 0.1 mm of precipitation in the hour: it rained or snowed."}
+      - {name: is_heavy_precipitation_hour, description: "At least 7.6 mm (0.3 in) in the hour, the Weather Service threshold for heavy rain."}
+      - {name: is_snow_hour, description: "Any new snow in the hour."}
+      - {name: cloud_cover_pct, description: "Cloud cover, percent."}
+      - {name: pressure_msl_hpa, description: "Sea level pressure, hectopascals."}
+      - {name: wind_speed_mph, description: "Mean wind speed, miles per hour."}
+      - {name: wind_gust_mph, description: "Strongest gust, miles per hour."}
+      - {name: wind_direction_deg, description: "Direction the wind comes from, degrees."}
+      - {name: is_day, description: "Sun up at the start of the hour."}
+      - {name: is_forecast, description: "True for hours that had not happened when the values were fetched."}
+      - {name: values_from, description: "archive (settled) or model (recent days and forecast)."}
+
+  - name: fct_weather_alert
+    description: Weather Service watches, warnings, advisories and statements for NYC, one row per event per forecast zone.
+    meta: {domain: weather, grain: one row per alert event per zone, time_column: starts_at}
+    columns:
+      - {name: event_key, description: "Id of the event across zones."}
+      - {name: event_name, description: "Alert name, for example Heat Advisory, Flash Flood Warning, Winter Storm Watch."}
+      - {name: hazard_code, description: "Weather Service hazard code, for example HT heat, FF flash flood, WS winter storm, CF coastal flood."}
+      - {name: alert_level, description: "warning, watch, advisory or statement. Warnings are the most serious."}
+      - {name: zone, description: "Forecast zone. Queens has two."}
+      - {name: boro_code, description: "Borough code."}
+      - {name: borough, description: "Borough."}
+      - {name: starts_at, description: "When the alert took effect."}
+      - {name: ends_at, description: "When it ended or was cancelled."}
+      - {name: starts_at_local, description: "Start in New York time."}
+      - {name: ends_at_local, description: "End in New York time."}
+      - {name: duration_hours, description: "Hours in effect."}
+      - {name: last_action, description: "Latest action seen live. Empty for archived alerts."}
+      - {name: severity, description: "CAP severity, live alerts only."}
+      - {name: headline, description: "Headline, live alerts only."}
+      - {name: captured_from, description: "live or archive."}
+
+  - name: fct_subway_arrival
+    description: >
+      Observed subway arrivals since capture began in October 2026, one row per train per stop,
+      matched to the schedule. delay_seconds is positive when late. About a quarter of trains are
+      not in the regular schedule (added or rerouted trains), so they have no delay.
+    meta: {domain: subway, grain: one row per train arrival at a stop, time_column: arrived_at,
+           local_date_column: arrived_date}
+    columns:
+      - {name: trip_uid, description: "Train trip, service date plus trip id."}
+      - {name: service_date, description: "Service day the trip belongs to."}
+      - {name: trip_id, description: "Realtime trip id."}
+      - name: route_id
+        description: Route.
+        data_tests: [{relationships: {arguments: {to: ref('dim_subway_route'), field: route_id}, config: {severity: warn}}}]
+      - {name: direction, description: "N (uptown and toward the Bronx) or S (downtown and toward Brooklyn)."}
+      - {name: stop_id, description: "Platform stop id."}
+      - {name: station_id, description: "Station. Joins to dim_subway_station."}
+      - {name: station_name, description: "Station name."}
+      - {name: complex_id, description: "Station complex."}
+      - {name: borough, description: "Borough of the station."}
+      - {name: nta_code, description: "Neighborhood of the station."}
+      - {name: arrived_at, description: "Arrival instant. Filter time ranges on this column."}
+      - {name: arrived_at_local, description: "Arrival in New York time."}
+      - {name: arrived_date, description: "Arrival date in New York."}
+      - {name: arrived_hour, description: "Arrival hour in New York."}
+      - {name: departed_at, description: "Last predicted departure."}
+      - {name: arrival_source, description: "vehicle_stopped (train reported standing at the stop, more exact) or last_prediction."}
+      - {name: is_scheduled_trip, description: "True when the train matched a trip in the regular schedule."}
+      - {name: scheduled_arrival_at, description: "Scheduled arrival."}
+      - {name: delay_seconds, description: "Seconds late against the schedule. Negative means early. Empty for unscheduled trains."}
+      - {name: stop_sequence, description: "Position of the stop in the scheduled trip."}
+      - {name: feed_version, description: "Schedule version used for the match."}
+
+  - name: fct_subway_stop_event
+    description: Every stop outcome the train tracker recorded, including skipped stops and stops never reached.
+    meta: {domain: subway, grain: one row per train per stop, time_column: arrived_at}
+    columns:
+      - {name: trip_uid, description: "Train trip."}
+      - {name: service_date, description: "Service day."}
+      - {name: trip_id, description: "Realtime trip id."}
+      - {name: route_id, description: "Route."}
+      - {name: direction, description: "N or S."}
+      - {name: stop_id, description: "Platform stop id."}
+      - {name: station_id, description: "Station."}
+      - {name: outcome, description: "arrived, skipped (dropped from the trip, often a reroute) or unreached (trip ended first)."}
+      - {name: arrived_at, description: "Arrival instant, for arrived stops."}
+      - {name: arrived_at_local, description: "Arrival in New York time."}
+      - {name: first_predicted_at, description: "First arrival prediction seen."}
+      - {name: predictions_seen, description: "Polls that carried a prediction for the stop."}
+      - {name: recorded_at, description: "When the tracker wrote the row."}
+
+  - name: fct_subway_trip
+    description: Train trips the tracker followed from start to finish.
+    meta: {domain: subway, grain: one row per trip, time_column: first_seen_at}
+    columns:
+      - {name: trip_uid, description: "Train trip.", data_tests: [unique]}
+      - {name: service_date, description: "Service day."}
+      - {name: trip_id, description: "Realtime trip id."}
+      - {name: route_id, description: "Route."}
+      - {name: direction, description: "N or S."}
+      - {name: scheduled_start, description: "Scheduled departure from the first stop, HH:MM:SS."}
+      - {name: first_seen_at, description: "First poll that saw the trip."}
+      - {name: last_seen_at, description: "Last poll that saw it."}
+      - {name: first_seen_at_local, description: "First seen, New York time."}
+      - {name: stops_arrived, description: "Stops reached."}
+      - {name: stops_skipped, description: "Stops dropped on the way."}
+      - {name: stops_unreached, description: "Stops still ahead when it left the feed."}
+      - {name: stops_tracked, description: "All stops the tracker followed for the trip."}
+
+  - name: fct_subway_alert
+    description: Subway service alerts as the MTA published them, since capture began.
+    meta: {domain: subway, grain: one row per alert, time_column: created_at}
+    columns:
+      - {name: alert_id, description: "Alert id.", data_tests: [unique]}
+      - {name: alert_type, description: "MTA category, for example Delays, Planned - Part Suspended, Station Notice."}
+      - {name: is_planned_work, description: "True for planned service changes."}
+      - {name: header_text, description: "Headline. Routes appear in brackets, like [E]."}
+      - {name: description_text, description: "Longer description."}
+      - {name: route_ids, description: "Routes named in the alert, as a list. Use list_contains(route_ids, 'E')."}
+      - {name: stop_ids, description: "Stations named in the alert, as a list."}
+      - {name: active_periods, description: "Periods the alert applies to."}
+      - {name: first_active_at, description: "Start of the first active period."}
+      - {name: last_active_at, description: "End of the last active period. Empty means open ended."}
+      - {name: created_at, description: "When the MTA created the alert."}
+      - {name: created_at_local, description: "Created, New York time."}
+      - {name: updated_at, description: "Last change by the MTA."}
+      - {name: first_seen_at, description: "First poll that carried it."}
+      - {name: last_seen_at, description: "Latest poll that carried it."}
+
+  - name: fct_subway_ridership_hourly
+    description: >
+      Estimated subway entries per station complex per hour since January 2024, split by payment
+      method and fare class. Sum riders across rows for totals.
+    meta: {domain: subway, grain: one row per hour per complex per payment method per fare class,
+           time_column: hour_start, local_date_column: hour_date}
+    columns:
+      - {name: hour_at_local, description: "Hour in New York."}
+      - {name: hour_date, description: "Date in New York."}
+      - {name: hour_hour, description: "Hour of day, 0 to 23."}
+      - {name: hour_start, description: "Start of the hour as an instant. Filter time ranges on this column."}
+      - {name: transit_mode, description: "subway, staten_island_railway or tram."}
+      - {name: complex_id, description: "Station complex. Joins to dim_subway_complex."}
+      - {name: complex_name, description: "Complex name with routes, for example 'Times Sq-42 St (N,Q,R,W,S,1,2,3,7)'."}
+      - {name: borough, description: "Borough."}
+      - {name: payment_method, description: "omny or metrocard."}
+      - {name: fare_class, description: "Fare category, for example full fare, students, reduced fare."}
+      - {name: riders, description: "Estimated entries."}
+      - {name: transfers, description: "Entries that were free transfers, included in riders."}
+
+  - name: fct_bike_trip
+    description: Citi Bike rides since January 2024, one row per ride.
+    meta: {domain: bike, grain: one row per ride, time_column: started_at,
+           local_date_column: start_date, partition_column: file_month}
+    columns:
+      - {name: ride_id, description: "Ride id."}
+      - {name: file_month, description: "Month of the published file."}
+      - {name: start_at_local, description: "Start in New York time."}
+      - {name: start_date, description: "Start date."}
+      - {name: start_hour, description: "Start hour."}
+      - {name: started_at, description: "Start instant. Filter time ranges on this column."}
+      - {name: ended_at, description: "End instant."}
+      - {name: duration_minutes, description: "Minutes from unlock to return."}
+      - {name: bike_type, description: "classic_bike or electric_bike."}
+      - {name: rider_type, description: "member (annual) or casual."}
+      - {name: start_station_number, description: "Station number at the start. Joins to dim_bike_station.station_number."}
+      - {name: start_station_name, description: "Station name at the start."}
+      - {name: end_station_number, description: "Station number at the end."}
+      - {name: end_station_name, description: "Station name at the end."}
+      - {name: is_round_trip, description: "Returned to the station it started from."}
+      - {name: start_boro_code, description: "Borough at the start."}
+      - {name: start_nta_code, description: "Neighborhood at the start."}
+      - {name: start_taxi_zone_id, description: "Taxi zone at the start."}
+      - {name: end_boro_code, description: "Borough at the end."}
+      - {name: end_nta_code, description: "Neighborhood at the end."}
+      - {name: end_taxi_zone_id, description: "Taxi zone at the end."}
+      - {name: start_latitude, description: "Latitude at the start."}
+      - {name: start_longitude, description: "Longitude at the start."}
+      - {name: end_latitude, description: "Latitude at the end."}
+      - {name: end_longitude, description: "Longitude at the end."}
+      - {name: straight_line_miles, description: "Distance between start and end as the crow flies. Not the route ridden."}
+
+  - name: fct_bike_station_status
+    description: >
+      Bikes and docks at each Citi Bike station, one row each time they changed, since capture
+      began in October 2026. A row holds until the next row for the same station.
+    meta: {domain: bike, grain: one row per station per change, time_column: reported_at}
+    columns:
+      - {name: station_id, description: "Station. Joins to dim_bike_station."}
+      - {name: reported_at, description: "When the station reported. Filter time ranges on this column."}
+      - {name: reported_at_local, description: "Report time in New York."}
+      - {name: reported_date, description: "Report date."}
+      - {name: reported_hour, description: "Report hour."}
+      - {name: bikes_available, description: "Bikes ready to rent."}
+      - {name: ebikes_available, description: "Electric bikes ready to rent, included in bikes_available."}
+      - {name: classic_bikes_available, description: "Classic bikes ready to rent."}
+      - {name: docks_available, description: "Empty docks."}
+      - {name: bikes_disabled, description: "Broken or reserved bikes in docks."}
+      - {name: docks_disabled, description: "Docks out of service."}
+      - {name: is_installed, description: "Station physically in place."}
+      - {name: is_renting, description: "Renting bikes."}
+      - {name: is_returning, description: "Accepting returns."}
+      - {name: is_empty, description: "No bikes to rent while renting."}
+      - {name: is_full, description: "No docks free while accepting returns."}
+
+  - name: fct_traffic_speed
+    description: Speed readings on DOT sensor links, about one per link every five minutes, since January 2024.
+    meta: {domain: traffic, grain: one row per link per reading, time_column: observed_at,
+           local_date_column: observed_date}
+    columns:
+      - {name: link_id, description: "Road link. Joins to dim_traffic_link."}
+      - {name: observed_at, description: "Reading instant. Filter time ranges on this column."}
+      - {name: observed_at_local, description: "Reading time in New York."}
+      - {name: observed_date, description: "Reading date."}
+      - {name: observed_hour, description: "Reading hour."}
+      - {name: speed_mph, description: "Average speed over the link, miles per hour."}
+      - {name: travel_time_seconds, description: "Seconds to drive the link."}
+      - {name: status_code, description: "DOT status code. 0 is a normal reading."}
+      - {name: is_valid, description: "True for normal readings. Use only these for speed averages."}
