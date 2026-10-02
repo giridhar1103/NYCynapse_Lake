@@ -8,6 +8,7 @@ WorkingDirectory=/root/NYCynapse_Lake/dbt
 EnvironmentFile=/root/.secrets/nycynapse.env
 Environment=HOME=/root
 Environment=DBT_PROFILES_DIR=/root/NYCynapse_Lake/dbt
+Environment=DBT_RUN_KIND=%i
 ExecStart=/bin/sh -c 'if [ "%i" = daily ]; then exec /root/NYCynapse_Lake/.venv-dbt/bin/dbt build --selector daily; else exec /root/NYCynapse_Lake/.venv-dbt/bin/dbt run --selector %i; fi'
 MemoryMax=1792M
 Nice=10

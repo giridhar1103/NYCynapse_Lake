@@ -1,6 +1,7 @@
 """DuckDB connections attached to the DuckLake catalog."""
 
 import os
+import shutil
 
 import duckdb
 
@@ -24,7 +25,7 @@ def connect(settings: Settings, *, read_only: bool = False) -> duckdb.DuckDBPyCo
     settings.tmp_path.mkdir(parents=True, exist_ok=True)
     con.execute(f"SET memory_limit = '{settings.memory_limit}'")
     con.execute(f"SET threads = {int(settings.threads)}")
-    con.execute(f"SET temp_directory = '{settings.tmp_path / 'duckdb'}'")
+    con.execute(f"SET temp_directory = '{_spill_dir(settings)}'")
     # Parquet writes do not need to keep input order, and keeping it costs memory.
     con.execute("SET preserve_insertion_order = false")
     # The host runs on Europe/Berlin. Everything in the lake is UTC unless a column says otherwise.
@@ -40,6 +41,28 @@ def connect(settings: Settings, *, read_only: bool = False) -> duckdb.DuckDBPyCo
         options.append(f"DATA_PATH '{settings.data_path}/'")
     con.execute(f"ATTACH '{_catalog_uri(settings)}' AS {LAKE} ({', '.join(options)})")
     return con
+
+
+def _spill_dir(settings: Settings):
+    """A spill directory of this process's own. DuckDB processes sharing one collide on files."""
+    root = settings.tmp_path / "duckdb"
+    root.mkdir(parents=True, exist_ok=True)
+    for d in root.iterdir():
+        if d.is_dir() and d.name.isdigit() and not _alive(int(d.name)):
+            shutil.rmtree(d, ignore_errors=True)
+    mine = root / str(os.getpid())
+    mine.mkdir(exist_ok=True)
+    return mine
+
+
+def _alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
 
 
 def _load(con: duckdb.DuckDBPyConnection, ext: str) -> None:

@@ -23,4 +23,5 @@ nycynapse:
         threads: 2
         TimeZone: UTC
         preserve_insertion_order: false
-        temp_directory: "{{ env_var('NYC_LAKE_TMP_PATH', '/srv/nycynapse/tmp') }}/dbt"
+        # One spill directory per kind of run, so concurrent dbt runs never share files.
+        temp_directory: "{{ env_var('NYC_LAKE_TMP_PATH', '/srv/nycynapse/tmp') }}/dbt-{{ env_var('DBT_RUN_KIND', 'manual') }}"
