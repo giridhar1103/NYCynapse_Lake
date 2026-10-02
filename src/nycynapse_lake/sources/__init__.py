@@ -7,6 +7,7 @@ from ..runs import RunContext
 
 MODULES = {
     "tlc_zones": "nycynapse_lake.sources.tlc_zones",
+    "nyc_geo": "nycynapse_lake.sources.nyc_geo",
 }
 
 

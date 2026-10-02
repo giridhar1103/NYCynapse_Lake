@@ -71,8 +71,12 @@ def _row_rules(table: Table) -> list[str]:
     return rules
 
 
+def _describe(con: duckdb.DuckDBPyConnection, staged: str) -> dict[str, str]:
+    return {r[0]: r[1] for r in con.execute(f"DESCRIBE {staged}").fetchall()}
+
+
 def check_schema(con: duckdb.DuckDBPyConnection, table: Table, staged: str) -> list[Check]:
-    present = {r[0] for r in con.execute(f"DESCRIBE {staged}").fetchall()}
+    present = set(_describe(con, staged))
     expected = {c.name for c in table.columns}
     missing = sorted(expected - present)
     if missing:
@@ -101,7 +105,8 @@ def validate(con: duckdb.DuckDBPyConnection, table: Table, staged: str) -> Valid
     checked = f"_checked_{table.name}"
     con.execute(
         f"CREATE OR REPLACE TEMP TABLE {checked} AS "
-        f"SELECT {typed_cols}, {reason} AS _reject_reason, to_json(s) AS _original FROM {staged} s"
+        f"SELECT {typed_cols}, {reason} AS _reject_reason, {_original(con, staged)} AS _original "
+        f"FROM {staged} s"
     )
     rows_in, rows_rejected = con.execute(
         f"SELECT count(*), count(_reject_reason) FROM {checked}"
@@ -174,6 +179,17 @@ def validate(con: duckdb.DuckDBPyConnection, table: Table, staged: str) -> Valid
             )
 
     return Validated(clean, rows_in, rows_rejected, duplicates, sample, checks)
+
+
+def _original(con: duckdb.DuckDBPyConnection, staged: str) -> str:
+    """JSON copy of the incoming row for quarantine. Shapes and binary columns are left out."""
+    keep = [
+        name
+        for name, kind in _describe(con, staged).items()
+        if not kind.startswith(("GEOMETRY", "BLOB"))
+    ]
+    fields = ", ".join(f'"{n}" := s."{n}"' for n in keep)
+    return f"to_json(struct_pack({fields}))" if keep else "to_json(struct_pack(empty := NULL))"
 
 
 def failed(checks: list[Check]) -> list[Check]:
