@@ -12,7 +12,7 @@ import httpx
 from . import __version__
 from .retry import Retryable, RetryPolicy, retry
 
-USER_AGENT = f"NYCynapse-Lake/{__version__} (+https://github.com/giridhar1103/NYCynapse_Lake)"
+USER_AGENT = f"NYCynapse-Lake/{__version__} (github.com/giridhar1103/NYCynapse_Lake)"
 RETRY_STATUS = {408, 425, 429, 500, 502, 503, 504}
 DEFAULT_POLICY = RetryPolicy()
 
@@ -83,14 +83,20 @@ class Http:
         return self.get(url, **kw).json()
 
     def download(
-        self, url: str, dest_dir: Path, *, etag: str | None = None, last_modified: str | None = None
+        self,
+        url: str,
+        dest_dir: Path,
+        *,
+        etag: str | None = None,
+        last_modified: str | None = None,
+        headers: dict | None = None,
     ) -> Downloaded | None:
         """Stream url to a file in dest_dir. Returns None when the server says it has not changed.
 
         The caller owns the file and deletes it once the load is committed.
         """
         dest_dir.mkdir(parents=True, exist_ok=True)
-        headers = {}
+        headers = dict(headers or {})
         if etag:
             headers["If-None-Match"] = etag
         if last_modified:
