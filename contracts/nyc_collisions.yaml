@@ -1,0 +1,91 @@
+source: nyc_collisions
+version: 1
+domain: safety
+description: >
+  NYPD motor vehicle collision reports from NYC Open Data, from January 2024 on. A report is
+  filed when someone is hurt or killed, or damage is over $1,000. NYPD publishes these with a
+  delay, sometimes of several months, so the latest weeks are usually incomplete.
+cadence: daily
+freshness_sla: 120 days
+upstream:
+  - https://data.cityofnewyork.us/resource/h9gi-nx95
+  - https://data.cityofnewyork.us/resource/f55k-p6yu
+
+tables:
+  - name: collision_crashes
+    description: One row per reported crash.
+    grain: one row per crash
+    primary_key: [collision_id]
+    write: merge
+    version_column: source_updated_at
+    event_time: crashed_at
+    partition_by: [year(crashed_at)]
+    max_reject_rate: 0.001
+    columns:
+      - {name: collision_id, type: BIGINT, nullable: false, description: Crash id. Person records refer to it.}
+      - {name: crashed_at, type: TIMESTAMPTZ, nullable: false, description: Date and time of the crash, published in New York time.}
+      - {name: borough, type: VARCHAR, accepted: [Manhattan, Bronx, Brooklyn, Queens, Staten Island], description: Borough as NYPD recorded it. Often empty for highway crashes.}
+      - {name: zip_code, type: VARCHAR, description: ZIP code as NYPD recorded it.}
+      - {name: latitude, type: DOUBLE, description: Latitude. Empty when NYPD gave none or gave a point outside the city.}
+      - {name: longitude, type: DOUBLE, description: Longitude. Same rule as latitude.}
+      - {name: on_street_name, type: VARCHAR, description: Street the crash happened on.}
+      - {name: cross_street_name, type: VARCHAR, description: Nearest cross street.}
+      - {name: off_street_name, type: VARCHAR, description: Address when the crash was off the street, for example in a lot.}
+      - {name: persons_injured, type: SMALLINT, nullable: false, min: 0, unit: people, description: Everyone injured, all road users.}
+      - {name: persons_killed, type: SMALLINT, nullable: false, min: 0, unit: people, description: Everyone killed, all road users.}
+      - {name: pedestrians_injured, type: SMALLINT, nullable: false, min: 0, unit: people, description: Pedestrians injured.}
+      - {name: pedestrians_killed, type: SMALLINT, nullable: false, min: 0, unit: people, description: Pedestrians killed.}
+      - {name: cyclists_injured, type: SMALLINT, nullable: false, min: 0, unit: people, description: Cyclists injured.}
+      - {name: cyclists_killed, type: SMALLINT, nullable: false, min: 0, unit: people, description: Cyclists killed.}
+      - {name: motorists_injured, type: SMALLINT, nullable: false, min: 0, unit: people, description: Motor vehicle occupants injured.}
+      - {name: motorists_killed, type: SMALLINT, nullable: false, min: 0, unit: people, description: Motor vehicle occupants killed.}
+      - {name: contributing_factor_1, type: VARCHAR, description: Contributing factor recorded for vehicle 1, for example "Driver Inattention/Distraction".}
+      - {name: contributing_factor_2, type: VARCHAR, description: Contributing factor for vehicle 2.}
+      - {name: contributing_factor_3, type: VARCHAR, description: Contributing factor for vehicle 3.}
+      - {name: contributing_factor_4, type: VARCHAR, description: Contributing factor for vehicle 4.}
+      - {name: contributing_factor_5, type: VARCHAR, description: Contributing factor for vehicle 5.}
+      - {name: vehicle_type_1, type: VARCHAR, description: Type of vehicle 1 as written by the officer. Free text, so spellings vary.}
+      - {name: vehicle_type_2, type: VARCHAR, description: Type of vehicle 2.}
+      - {name: vehicle_type_3, type: VARCHAR, description: Type of vehicle 3.}
+      - {name: vehicle_type_4, type: VARCHAR, description: Type of vehicle 4.}
+      - {name: vehicle_type_5, type: VARCHAR, description: Type of vehicle 5.}
+      - {name: boro_code, type: TINYINT, description: Borough the coordinates fall in, from the lake's boundary files.}
+      - {name: nta_code, type: VARCHAR, description: 2020 Neighborhood Tabulation Area the coordinates fall in.}
+      - {name: community_district, type: SMALLINT, description: Community district the coordinates fall in.}
+      - {name: modzcta, type: VARCHAR, description: Modified ZIP Code Tabulation Area the coordinates fall in.}
+      - {name: council_district, type: TINYINT, description: Council district the coordinates fall in.}
+      - {name: police_precinct, type: SMALLINT, description: Police precinct the coordinates fall in.}
+      - {name: taxi_zone_id, type: SMALLINT, description: TLC taxi zone the coordinates fall in.}
+      - {name: source_updated_at, type: TIMESTAMPTZ, nullable: false, description: When NYC Open Data last changed this row.}
+
+  - name: collision_persons
+    description: One row per person involved in a reported crash, hurt or not.
+    grain: one row per person per crash
+    primary_key: [person_record_id]
+    write: merge
+    version_column: source_updated_at
+    event_time: crashed_at
+    partition_by: [year(crashed_at)]
+    max_reject_rate: 0.001
+    columns:
+      - {name: person_record_id, type: BIGINT, nullable: false, description: Id of this person record.}
+      - {name: collision_id, type: BIGINT, nullable: false, description: Crash this person was involved in.}
+      - {name: crashed_at, type: TIMESTAMPTZ, nullable: false, description: Date and time of the crash.}
+      - {name: person_id, type: VARCHAR, description: Id of the person within the crash.}
+      - {name: vehicle_id, type: VARCHAR, description: Vehicle the person was in or was hit by.}
+      - {name: person_type, type: VARCHAR, description: Pedestrian, Bicyclist, Occupant or Other Motorized.}
+      - {name: person_injury, type: VARCHAR, description: Killed, Injured or Unspecified.}
+      - {name: person_age, type: SMALLINT, min: 0, max: 110, unit: years, description: Age. Empty when unknown or clearly wrong.}
+      - {name: person_sex, type: VARCHAR, description: Sex as recorded, M, F or U.}
+      - {name: ped_role, type: VARCHAR, description: Role, for example Driver, Passenger, Pedestrian.}
+      - {name: position_in_vehicle, type: VARCHAR, description: Seat position for occupants.}
+      - {name: safety_equipment, type: VARCHAR, description: Seat belt, helmet or other equipment recorded.}
+      - {name: ejection, type: VARCHAR, description: Whether the person was thrown from the vehicle.}
+      - {name: emotional_status, type: VARCHAR, description: State recorded by the officer, for example Conscious or Unconscious.}
+      - {name: bodily_injury, type: VARCHAR, description: Part of the body injured.}
+      - {name: complaint, type: VARCHAR, description: Type of injury, for example Complaint of Pain or Fracture.}
+      - {name: ped_location, type: VARCHAR, description: Where a pedestrian was, for example at an intersection.}
+      - {name: ped_action, type: VARCHAR, description: What a pedestrian was doing, for example crossing with the signal.}
+      - {name: contributing_factor_1, type: VARCHAR, description: First contributing factor recorded for this person.}
+      - {name: contributing_factor_2, type: VARCHAR, description: Second contributing factor.}
+      - {name: source_updated_at, type: TIMESTAMPTZ, nullable: false, description: When NYC Open Data last changed this row.}
