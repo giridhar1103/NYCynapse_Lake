@@ -17,7 +17,15 @@ History starts in January 2024 and grows from there.
 | Weather | Open-Meteo hourly weather, National Weather Service alerts | hourly, every 5 minutes |
 | Geography | NTAs, community districts, ZIP areas, council districts, precincts | checked monthly |
 
-Sources are being added in that order of dependency: geography first, then the feeds that refer to it. The taxi zone lookup is live today.
+Geography, weather, weather alerts, 311 and collisions are live. Transit, TLC trips, Citi Bike and traffic come next.
+
+| Table | Rows (October 2026) |
+|---|---|
+| `requests_311` | 10.1 million |
+| `collision_crashes`, `collision_persons` | 213 thousand, 733 thousand |
+| `weather_hourly` | 120 thousand |
+| `weather_alerts` | 1.1 thousand |
+| boundary tables | 975 polygons |
 
 ## How a load works
 
@@ -26,6 +34,8 @@ Sources are being added in that order of dependency: geography first, then the f
 3. **Check.** Each source has a contract in [`contracts/`](contracts) with types, keys, allowed values, ranges and batch rules. Rows that break a rule go to a quarantine table with the reason. A batch with too many bad rows or too few rows is stopped.
 4. **Write.** Clean rows are written to `lake.silver` in one DuckLake transaction, using a write mode that makes repeats harmless: replace a table, replace a partition, merge on key with an optional version column, or insert only new keys.
 5. **Checkpoint.** Cursors and watermarks are saved after the lake commit, never before. A crash in between means the next run repeats work, and the write mode turns that into a no-op.
+
+Rows with coordinates are tagged during the load with their borough, neighborhood (NTA), community district, ZIP area, council district, police precinct and taxi zone. Queries then filter on plain codes instead of running spatial joins. To make tagging fast, every boundary is cut along a 0.01 degree grid once, so each point is tested against a few small pieces instead of whole precincts. A million points tag in about seven seconds on two cores.
 
 Every row carries `_source`, `_load_id`, `_ingested_at` and `_contract_version`, and every commit is a DuckLake snapshot tagged with its load id. Any table can be read as it was at an earlier snapshot.
 
@@ -38,6 +48,15 @@ Since raw payloads are not stored, replay works in two ways. Batch sources are r
 * `lake.gold`: models built with dbt for querying
 * Postgres schema `ops`: runs, checkpoints, upstream files, circuit breakers, quality results, quarantine, feed gaps and table coverage
 
+## Scheduling
+
+Each source runs as a one-shot systemd service on its own timer: alerts every 5 minutes, weather hourly, 311 and collisions daily, boundaries monthly. A service exits with code 75 when its source is already running or its circuit breaker is open, and systemd treats that as success. A daily maintenance job compacts small files, expires snapshots older than 30 days (except ones pinned in `ops.pinned_snapshots`) and purges old quarantine rows.
+
+```bash
+sudo ./deploy/install.sh
+systemctl list-timers 'nyc-lake-*'
+```
+
 ## Running it
 
 ```bash
@@ -49,6 +68,8 @@ set -a; . ./.env; set +a
 .venv/bin/nyc-lake migrate
 .venv/bin/nyc-lake check-contracts
 .venv/bin/nyc-lake run tlc_zones
+.venv/bin/nyc-lake sources        # list what can run
+.venv/bin/nyc-lake maintain
 ```
 
 Tests need a Postgres database for the control tables:
@@ -64,13 +85,17 @@ export NYC_LAKE_TEST_PG_DSN="dbname=nycynapse_lake_test host=127.0.0.1 user=nyc_
 contracts/                 one YAML contract per source
 src/nycynapse_lake/
   lake.py                  DuckDB connection attached to the DuckLake catalog
+  geo.py                   boundary pieces and point tagging
+  socrata.py               keyset paging for NYC Open Data and data.ny.gov
   http.py retry.py         fetching, backoff, conditional requests
   breaker.py               per-source circuit breaker
   contracts.py quality.py  contract parsing, row and batch checks
   writer.py                idempotent writes and schema evolution
   runs.py                  run lifecycle, checkpoints, coverage
   spool.py                 local buffer for live feeds when the lake is unavailable
+  maintain.py              compaction, snapshot expiry, quarantine purge
   control/                 Postgres ops tables and migrations
   sources/                 one module per source
+deploy/                    systemd services and timers
 tests/
 ```
