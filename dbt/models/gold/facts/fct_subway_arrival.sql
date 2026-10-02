@@ -72,7 +72,7 @@ select
     m.trip_uid,
     m.service_date,
     m.trip_id,
-    m.route_id,
+    {{ subway_route('m.route_id') }}                 as route_id,
     m.direction,
     m.stop_id,
     m.station_id,

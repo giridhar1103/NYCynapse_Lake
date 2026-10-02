@@ -2,7 +2,7 @@ select
     trip_uid,
     service_date,
     trip_id,
-    route_id,
+    {{ subway_route('route_id') }}                   as route_id,
     direction,
     stop_id,
     station_id,

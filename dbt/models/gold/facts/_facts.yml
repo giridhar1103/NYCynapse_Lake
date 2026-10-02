@@ -21,7 +21,9 @@ models:
       - {name: pickup_at_local, description: "Pickup time in New York."}
       - name: pickup_date
         description: Pickup date in New York.
-        data_tests: [not_null]
+        data_tests:
+          - not_null:
+              config: {where: "file_month >= current_date - interval 4 month"}
       - {name: pickup_hour, description: "Pickup hour in New York, 0 to 23."}
       - {name: pickup_at, description: "Pickup instant. Filter time ranges on this column."}
       - {name: dropoff_at, description: "Dropoff instant."}

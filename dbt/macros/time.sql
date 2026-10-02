@@ -9,3 +9,8 @@
     CAST({{ ny(col) }} AS DATE) AS {{ prefix }}_date,
     CAST(hour({{ ny(col) }}) AS TINYINT) AS {{ prefix }}_hour
 {%- endmacro %}
+
+{# The realtime feed calls the Staten Island Railway SS; the schedule and riders call it SI. #}
+{% macro subway_route(col) -%}
+    case when {{ col }} = 'SS' then 'SI' else {{ col }} end
+{%- endmacro %}
