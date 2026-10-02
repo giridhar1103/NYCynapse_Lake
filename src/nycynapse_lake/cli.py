@@ -20,7 +20,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("source")
     r.add_argument("--force", action="store_true", help="reload even if upstream is unchanged")
     po = sub.add_parser("poll", help="run a long-lived poller for a live source")
-    po.add_argument("source", choices=["subway_realtime"])
+    po.add_argument("source", choices=["subway_realtime", "citibike_live"])
     m = sub.add_parser("maintain", help="compact files, expire old snapshots, purge quarantine")
     m.add_argument("--keep-days", type=int, default=30)
     args = parser.parse_args(argv)
@@ -51,10 +51,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "poll":
+        from .realtime.gbfs import GbfsPoller
         from .realtime.poller import SubwayPoller
 
         contract = contracts.load(settings.contracts_path / f"{args.source}.yaml")
-        SubwayPoller(settings, contract).run_forever()
+        poller = {"subway_realtime": SubwayPoller, "citibike_live": GbfsPoller}[args.source]
+        poller(settings, contract).run_forever()
         return 0
 
     if args.cmd == "maintain":

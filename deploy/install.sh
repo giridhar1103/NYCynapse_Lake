@@ -7,7 +7,7 @@ systemctl daemon-reload
 for t in "$here"/systemd/*.timer; do
     systemctl enable --now "$(basename "$t")"
 done
-for poller in subway_realtime; do
+for poller in subway_realtime citibike_live; do
     systemctl enable "nyc-lake-poll@${poller}.service"
     systemctl restart "nyc-lake-poll@${poller}.service"
 done
