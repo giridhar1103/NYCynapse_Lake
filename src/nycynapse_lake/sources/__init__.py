@@ -6,6 +6,7 @@ from importlib import import_module
 from ..runs import RunContext
 
 MODULES = {
+    "citibike_trips": "nycynapse_lake.sources.citibike_trips",
     "tlc_zones": "nycynapse_lake.sources.tlc_zones",
     "tlc_trips": "nycynapse_lake.sources.tlc_trips",
     "nyc_geo": "nycynapse_lake.sources.nyc_geo",
