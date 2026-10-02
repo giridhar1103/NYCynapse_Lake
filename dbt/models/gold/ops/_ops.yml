@@ -1,0 +1,31 @@
+version: 2
+models:
+  - name: ops_source_freshness
+    description: How current each lake table is. Refreshed every 15 minutes.
+    meta: {domain: pipeline_ops, grain: one row per lake table}
+    columns:
+      - {name: table_name, description: "Lake table."}
+      - {name: source, description: "Ingestion source that fills it."}
+      - {name: domain, description: "Domain of the source."}
+      - {name: cadence, description: "How often the source publishes."}
+      - {name: freshness_sla, description: "How old the last successful load may be before the table counts as stale."}
+      - {name: coverage_start, description: "Earliest event time in the table."}
+      - {name: coverage_end, description: "Latest event time in the table."}
+      - {name: row_count, description: "Rows in the table."}
+      - {name: last_loaded_at, description: "When a load last wrote to the table."}
+      - {name: last_success_at, description: "When the source last finished a run successfully."}
+      - {name: last_status, description: "Status of the latest run."}
+      - {name: last_error, description: "Error of the latest run, if it failed."}
+      - {name: is_stale, description: "True when the last success is older than the SLA."}
+      - {name: hours_since_latest_event, description: "Hours between the latest event in the table and now."}
+      - {name: checked_at, description: "When this row was computed."}
+  - name: ops_feed_gap
+    description: Periods a live feed was not captured, or was captured with less precision.
+    meta: {domain: pipeline_ops, grain: one row per gap}
+    columns:
+      - {name: source, description: "Live source."}
+      - {name: feed, description: "Feed within the source, when the gap affected just one."}
+      - {name: gap_start, description: "Start of the gap."}
+      - {name: gap_end, description: "End of the gap."}
+      - {name: gap_minutes, description: "Length in minutes."}
+      - {name: reason, description: "What happened."}

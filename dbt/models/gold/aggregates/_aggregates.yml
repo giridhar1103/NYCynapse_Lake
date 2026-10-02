@@ -1,0 +1,27 @@
+version: 2
+models:
+  - name: agg_trips_zone_hourly
+    description: >
+      Taxi and app trips per pickup zone per local hour, by service, since January 2024. Built
+      from plausible trips only. Measures are sums and counts so they can be added across rows;
+      for an average divide a sum by its count, for example wait_minutes_sum / trips_with_wait.
+    meta: {domain: rideshare_taxi, grain: one row per service per zone per local hour,
+           local_date_column: pickup_date, partition_column: file_month}
+    columns:
+      - {name: file_month, description: "Month of the TLC files."}
+      - name: service
+        description: uber, lyft, via, juno, yellow or green.
+        data_tests: [not_null]
+      - {name: pickup_date, description: "Pickup date in New York."}
+      - {name: pickup_hour, description: "Pickup hour in New York."}
+      - {name: pickup_zone_id, description: "Pickup taxi zone."}
+      - {name: trips, description: "Trips."}
+      - {name: trip_miles_sum, description: "Total miles."}
+      - {name: trip_minutes_sum, description: "Total minutes."}
+      - {name: wait_minutes_sum, description: "Total rider wait, app trips only."}
+      - {name: trips_with_wait, description: "Trips with a known wait. Divide wait_minutes_sum by this."}
+      - {name: fare_usd_sum, description: "Total paid by riders before tips. For taxis, total minus tip."}
+      - {name: tips_usd_sum, description: "Total tips. Taxi cash tips are not recorded."}
+      - {name: driver_pay_usd_sum, description: "Total driver pay, app trips only."}
+      - {name: cbd_congestion_fee_usd_sum, description: "Total congestion relief zone tolls."}
+      - {name: trips_charged_cbd_fee, description: "Trips that paid the congestion relief zone toll."}
