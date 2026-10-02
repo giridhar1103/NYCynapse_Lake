@@ -32,8 +32,12 @@ def test_loads_zones_then_skips_unchanged_file(settings, ctl, con):
         "SELECT location_id, borough, zone_kind FROM lake.silver.tlc_zone "
         "WHERE location_id IN (1, 4, 264, 265) ORDER BY 1"
     ).fetchall()
-    assert rows == [(1, None, "newark_airport"), (4, "Manhattan", "nyc"),
-                    (264, None, "unknown"), (265, None, "outside_nyc")]
+    assert rows == [
+        (1, None, "newark_airport"),
+        (4, "Manhattan", "nyc"),
+        (264, None, "unknown"),
+        (265, None, "outside_nyc"),
+    ]
     assert con.execute("SELECT count(*) FROM lake.silver.tlc_zone").fetchone()[0] == 265
 
     with run_source(CONTRACT, settings, ctl=ctl, con=con, http=http) as ctx:

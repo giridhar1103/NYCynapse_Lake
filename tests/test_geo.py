@@ -11,8 +11,10 @@ def setup_layers(con):
     con.execute(f"""CREATE TABLE lake.t.geo_nta AS
         SELECT 'MN0101' AS nta_code, {square(-74.0, 40.70, -73.95, 40.80)} AS geom
         UNION ALL SELECT 'MN0102', {square(-73.95, 40.70, -73.90, 40.80)}""")
-    con.execute(f"CREATE TABLE lake.t.geo_borough AS SELECT 1 AS boro_code, "
-                f"{square(-74.0, 40.70, -73.90, 40.80)} AS geom")
+    con.execute(
+        f"CREATE TABLE lake.t.geo_borough AS SELECT 1 AS boro_code, "
+        f"{square(-74.0, 40.70, -73.90, 40.80)} AS geom"
+    )
     for table, col, value in [
         ("geo_community_district", "boro_cd", 101),
         ("geo_modzcta", "modzcta", "'10001'"),
@@ -20,8 +22,10 @@ def setup_layers(con):
         ("geo_police_precinct", "precinct", 14),
         ("geo_taxi_zone", "location_id", 161),
     ]:
-        con.execute(f"CREATE TABLE lake.t.{table} AS SELECT {value} AS {col}, "
-                    f"{square(-74.0, 40.70, -73.90, 40.80)} AS geom")
+        con.execute(
+            f"CREATE TABLE lake.t.{table} AS SELECT {value} AS {col}, "
+            f"{square(-74.0, 40.70, -73.90, 40.80)} AS geom"
+        )
     con.execute(f"CREATE TABLE lake.t.geo_piece AS {geo.pieces_sql('lake.t')}")
 
 

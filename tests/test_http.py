@@ -8,8 +8,11 @@ FAST = RetryPolicy(attempts=4, base=0.01, cap=0.01)
 
 
 def client(handler, sleeps=None):
-    return Http(policy=FAST, transport=httpx.MockTransport(handler),
-                sleep=(sleeps.append if sleeps is not None else lambda s: None))
+    return Http(
+        policy=FAST,
+        transport=httpx.MockTransport(handler),
+        sleep=(sleeps.append if sleeps is not None else lambda s: None),
+    )
 
 
 def test_retries_server_errors():
@@ -62,8 +65,12 @@ def test_download_sends_validators_and_handles_304(tmp_path):
         seen.update(req.headers)
         return httpx.Response(304)
 
-    got = client(handler).download("https://example.test/f", tmp_path, etag='"v1"',
-                                   last_modified="Thu, 22 Feb 2024 21:33:00 GMT")
+    got = client(handler).download(
+        "https://example.test/f",
+        tmp_path,
+        etag='"v1"',
+        last_modified="Thu, 22 Feb 2024 21:33:00 GMT",
+    )
     assert got is None
     assert seen["if-none-match"] == '"v1"'
     assert "if-modified-since" in seen
@@ -71,10 +78,12 @@ def test_download_sends_validators_and_handles_304(tmp_path):
 
 
 def test_short_download_is_retried_and_leaves_no_partial_file(tmp_path):
-    responses = iter([
-        httpx.Response(200, content=b"abc", headers={"Content-Length": "10"}),
-        httpx.Response(200, content=b"abcdefghij"),
-    ])
+    responses = iter(
+        [
+            httpx.Response(200, content=b"abc", headers={"Content-Length": "10"}),
+            httpx.Response(200, content=b"abcdefghij"),
+        ]
+    )
     got = client(lambda req: next(responses)).download("https://example.test/f", tmp_path)
     assert got.size == 10
     assert [p.name for p in tmp_path.iterdir()] == [got.path.name]

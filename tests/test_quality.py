@@ -17,25 +17,42 @@ def table(**over):
         "columns": [
             {"name": "sensor_id", "type": "integer", "nullable": False, "description": "s"},
             {"name": "hour", "type": "timestamp", "nullable": False, "description": "h"},
-            {"name": "value", "type": "double", "min": 0, "max": 100, "description": "v",
-             "max_null_rate": 0.1},
+            {
+                "name": "value",
+                "type": "double",
+                "min": 0,
+                "max": 100,
+                "description": "v",
+                "max_null_rate": 0.1,
+            },
             {"name": "status", "type": "varchar", "accepted": ["ok", "stale"], "description": "s"},
             {"name": "updated_at", "type": "timestamp", "description": "u"},
         ],
     }
     t.update(over)
-    return parse({"source": "demo", "version": 1, "domain": "t", "description": "d",
-                  "cadence": "hourly", "freshness_sla": "2 hours", "tables": [t]}).tables[0]
+    return parse(
+        {
+            "source": "demo",
+            "version": 1,
+            "domain": "t",
+            "description": "d",
+            "cadence": "hourly",
+            "freshness_sla": "2 hours",
+            "tables": [t],
+        }
+    ).tables[0]
 
 
 def stage(con, rows):
-    data = pa.table({
-        "sensor_id": [r[0] for r in rows],
-        "hour": [r[1] for r in rows],
-        "value": [r[2] for r in rows],
-        "status": [r[3] for r in rows],
-        "updated_at": [r[4] for r in rows],
-    })
+    data = pa.table(
+        {
+            "sensor_id": [r[0] for r in rows],
+            "hour": [r[1] for r in rows],
+            "value": [r[2] for r in rows],
+            "status": [r[3] for r in rows],
+            "updated_at": [r[4] for r in rows],
+        }
+    )
     con.register("staged", data)
     return "staged"
 

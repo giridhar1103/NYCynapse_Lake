@@ -9,33 +9,38 @@ from nycynapse_lake.quality import QualityFailure
 from nycynapse_lake.retry import Retryable, RetryPolicy
 from nycynapse_lake.runs import SourceBusy, run_source
 
-CONTRACT = parse({
-    "source": "demo",
-    "version": 2,
-    "domain": "test",
-    "description": "demo source",
-    "cadence": "hourly",
-    "freshness_sla": "2 hours",
-    "tables": [{
-        "name": "obs",
-        "description": "observations",
-        "grain": "one row per id",
-        "primary_key": ["id"],
-        "write": "merge",
-        "event_time": "at",
-        "max_reject_rate": 0.5,
-        "columns": [
-            {"name": "id", "type": "integer", "nullable": False, "description": "id"},
-            {"name": "at", "type": "timestamptz", "nullable": False, "description": "time"},
-            {"name": "v", "type": "integer", "min": 0, "description": "value"},
+CONTRACT = parse(
+    {
+        "source": "demo",
+        "version": 2,
+        "domain": "test",
+        "description": "demo source",
+        "cadence": "hourly",
+        "freshness_sla": "2 hours",
+        "tables": [
+            {
+                "name": "obs",
+                "description": "observations",
+                "grain": "one row per id",
+                "primary_key": ["id"],
+                "write": "merge",
+                "event_time": "at",
+                "max_reject_rate": 0.5,
+                "columns": [
+                    {"name": "id", "type": "integer", "nullable": False, "description": "id"},
+                    {"name": "at", "type": "timestamptz", "nullable": False, "description": "time"},
+                    {"name": "v", "type": "integer", "min": 0, "description": "value"},
+                ],
+            }
         ],
-    }],
-})
+    }
+)
 
 
 def data(*rows):
-    return pa.table({"id": [r[0] for r in rows], "at": [r[1] for r in rows],
-                     "v": [r[2] for r in rows]})
+    return pa.table(
+        {"id": [r[0] for r in rows], "at": [r[1] for r in rows], "v": [r[2] for r in rows]}
+    )
 
 
 def go(settings, ctl, con, **kw):
@@ -53,8 +58,9 @@ def test_successful_run_saves_checkpoint_and_stats(settings, ctl, con):
         ctx.load("obs", data((1, "2024-01-01T00:00:00Z", 5), (2, "2024-01-02T00:00:00Z", -1)))
         ctx.advance("cursor", {"page": 3})
     assert ctl.get_checkpoint("demo", "cursor") == {"page": 3}
-    assert runs(ctl) == [{"status": "succeeded", "rows_in": 2, "rows_written": 1,
-                          "rows_quarantined": 1}]
+    assert runs(ctl) == [
+        {"status": "succeeded", "rows_in": 2, "rows_written": 1, "rows_quarantined": 1}
+    ]
     q = ctl.conn.execute("SELECT reason, record FROM ops.quarantine").fetchone()
     assert q["reason"] == "v below 0" and q["record"]["id"] == 2
     fresh = ctl.conn.execute("SELECT * FROM ops.table_freshness").fetchone()

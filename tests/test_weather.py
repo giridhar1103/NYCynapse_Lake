@@ -4,10 +4,16 @@ from nycynapse_lake.sources import weather, weather_alerts
 
 
 def location(lat, temp):
-    return {"latitude": lat, "longitude": -73.9, "hourly": {
-        "time": ["2026-10-01T00:00", "2026-10-01T01:00"],
-        "temperature_2m": [temp, temp + 1], "is_day": [0, 1], "precipitation": [0.0, 1.2],
-    }}
+    return {
+        "latitude": lat,
+        "longitude": -73.9,
+        "hourly": {
+            "time": ["2026-10-01T00:00", "2026-10-01T01:00"],
+            "temperature_2m": [temp, temp + 1],
+            "is_day": [0, 1],
+            "precipitation": [0.0, 1.2],
+        },
+    }
 
 
 def test_flattens_one_row_per_borough_and_hour():
@@ -27,16 +33,27 @@ def test_marks_hours_after_fetch_as_forecast():
 
 
 def alert(vtec, zones, sent="2026-09-28T05:01:00-04:00", status="Actual", event="Heat Advisory"):
-    return {"properties": {
-        "status": status, "event": event, "sent": sent, "severity": "Moderate",
-        "affectedZones": [f"https://api.weather.gov/zones/forecast/{z}" for z in zones],
-        "parameters": {"VTEC": [vtec]}, "headline": "h",
-    }}
+    return {
+        "properties": {
+            "status": status,
+            "event": event,
+            "sent": sent,
+            "severity": "Moderate",
+            "affectedZones": [f"https://api.weather.gov/zones/forecast/{z}" for z in zones],
+            "parameters": {"VTEC": [vtec]},
+            "headline": "h",
+        }
+    }
 
 
 def test_live_alert_becomes_one_row_per_nyc_zone():
-    payload = {"features": [alert("/O.NEW.KOKX.HT.Y.0004.260715T1600Z-260716T0000Z/",
-                                  ["NYZ072", "NYZ176", "NJZ006"])]}
+    payload = {
+        "features": [
+            alert(
+                "/O.NEW.KOKX.HT.Y.0004.260715T1600Z-260716T0000Z/", ["NYZ072", "NYZ176", "NJZ006"]
+            )
+        ]
+    }
     rows = weather_alerts.live_rows(payload)
     assert [(r["zone"], r["boro_code"]) for r in rows] == [("NYZ072", 1), ("NYZ176", 4)]
     r = rows[0]
@@ -55,6 +72,9 @@ def test_cancelled_alert_ends_when_it_was_cancelled():
 
 
 def test_test_messages_are_ignored():
-    payload = {"features": [alert("/T.NEW.KOKX.HT.Y.0001.260715T1600Z-260716T0000Z/",
-                                  ["NYZ072"], status="Test")]}
+    payload = {
+        "features": [
+            alert("/T.NEW.KOKX.HT.Y.0001.260715T1600Z-260716T0000Z/", ["NYZ072"], status="Test")
+        ]
+    }
     assert weather_alerts.live_rows(payload) == []
