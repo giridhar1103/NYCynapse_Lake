@@ -1,6 +1,6 @@
 """MTA hourly subway ridership and the station list."""
 
-from datetime import date
+from datetime import date, timedelta
 
 from .. import geo
 from ..runs import RunContext
@@ -11,7 +11,7 @@ DATASETS = {2024: Dataset("data.ny.gov", "wujg-7c2s")}
 CURRENT = Dataset("data.ny.gov", "5wq4-mkjj")
 STATIONS = Dataset("data.ny.gov", "39hk-dx4f")
 START = date(2024, 1, 1)
-PAGE = 250_000
+PAGE = 200_000
 COLUMNS = (
     "transit_timestamp, transit_mode, station_complex_id, station_complex, borough, "
     "payment_method, fare_class_category, ridership, transfers, latitude, longitude"
@@ -66,21 +66,32 @@ def stations_sql(path: str) -> str:
 
 
 def _load_month(ctx: RunContext, soda: Socrata, month: date) -> int:
+    """Fetch a month one day at a time, then replace the month's partition in one transaction.
+
+    data.ny.gov answers a one-day window in seconds but can stall for many minutes on a
+    month-wide one, so days are the unit of download and the month is the unit of commit.
+    """
     ds = DATASETS.get(month.year, CURRENT)
     nxt = _next(month)
-    where = (
-        f"transit_timestamp >= '{month.isoformat()}T00:00:00' "
-        f"AND transit_timestamp < '{nxt.isoformat()}T00:00:00'"
-    )
-    pages = list(
-        soda.pages(
-            ds, ctx.settings.tmp_path / ctx.source, columns=COLUMNS, where=where, page_size=PAGE
-        )
-    )
+    pages = []
     try:
+        day = month
+        while day < nxt:
+            following = day + timedelta(days=1)
+            where = (
+                f"transit_timestamp >= '{day.isoformat()}T00:00:00' "
+                f"AND transit_timestamp < '{following.isoformat()}T00:00:00'"
+            )
+            pages += soda.pages(
+                ds,
+                ctx.settings.tmp_path / ctx.source,
+                columns=COLUMNS,
+                where=where,
+                page_size=PAGE,
+            )
+            day = following
         if not pages:
             return 0
-        # The whole month goes in one transaction so the partition is replaced atomically.
         return ctx.load(
             "subway_ridership_hourly",
             ridership_sql([str(p.file.path) for p in pages]),
