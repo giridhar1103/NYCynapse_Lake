@@ -1,0 +1,11 @@
+[Unit]
+Description=Schedule for NYCynapse lake load: mta_ridership
+
+[Timer]
+OnCalendar=Thu *-*-* 15:00:00 UTC
+RandomizedDelaySec=30m
+Persistent=true
+Unit=nyc-lake@mta_ridership.service
+
+[Install]
+WantedBy=timers.target
