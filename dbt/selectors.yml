@@ -1,0 +1,17 @@
+selectors:
+  - name: ops
+    description: Freshness and gap tables, every 15 minutes.
+    definition: {method: path, value: models/gold/ops}
+  - name: hourly
+    description: Subway arrivals matched to the schedule and the hourly weather table.
+    definition:
+      union:
+        - {method: fqn, value: fct_subway_arrival}
+        - {method: fqn, value: fct_weather_hourly}
+  - name: daily
+    description: Everything, with tests, after the nightly loads.
+    definition:
+      union:
+        - {method: fqn, value: "*"}
+        - exclude:
+            - {method: path, value: models/gold/ops}

@@ -1,0 +1,14 @@
+[Unit]
+Description=NYCynapse gold models: %i
+After=postgresql.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/NYCynapse_Lake/dbt
+EnvironmentFile=/root/.secrets/nycynapse.env
+Environment=HOME=/root
+Environment=DBT_PROFILES_DIR=/root/NYCynapse_Lake/dbt
+ExecStart=/bin/sh -c 'if [ "%i" = daily ]; then exec /root/NYCynapse_Lake/.venv-dbt/bin/dbt build --selector daily; else exec /root/NYCynapse_Lake/.venv-dbt/bin/dbt run --selector %i; fi'
+MemoryMax=1792M
+Nice=10
+TimeoutStartSec=4h

@@ -1,0 +1,11 @@
+[Unit]
+Description=Schedule for NYCynapse gold models: ops
+
+[Timer]
+OnCalendar=*:0/15
+RandomizedDelaySec=1m
+Persistent=true
+Unit=nyc-lake-dbt@ops.service
+
+[Install]
+WantedBy=timers.target
