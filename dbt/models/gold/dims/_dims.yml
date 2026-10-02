@@ -1,0 +1,198 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: One row per calendar day from 2024 through 2027, with weekday, weekend and federal holiday flags.
+    meta: {domain: calendar, grain: one row per date}
+    columns:
+      - name: date
+        description: The calendar date.
+        data_tests: [unique, not_null]
+      - {name: year, description: "Calendar year."}
+      - {name: quarter, description: "Calendar quarter, 1 to 4."}
+      - {name: month, description: "Month number, 1 to 12."}
+      - {name: month_name, description: "Month name, for example June."}
+      - {name: month_start, description: "First day of the month. Handy for grouping by month."}
+      - {name: day_of_month, description: "Day of the month."}
+      - {name: day_of_week, description: "ISO weekday: 1 Monday to 7 Sunday."}
+      - {name: day_name, description: "Weekday name, for example Saturday."}
+      - {name: week_start, description: "Monday of the week the date falls in."}
+      - {name: is_weekend, description: "True on Saturday and Sunday."}
+      - {name: is_holiday, description: "True on observed US federal holidays."}
+      - {name: holiday_name, description: "Name of the holiday, when there is one."}
+      - {name: is_workday, description: "True on weekdays that are not federal holidays."}
+
+  - name: dim_borough
+    description: The five boroughs.
+    meta: {domain: geography, grain: one row per borough}
+    columns:
+      - name: boro_code
+        description: "Borough code: 1 Manhattan, 2 Bronx, 3 Brooklyn, 4 Queens, 5 Staten Island."
+        data_tests: [unique, not_null]
+      - name: borough
+        description: Borough name.
+        data_tests:
+          - accepted_values: {arguments: {values: [Manhattan, Bronx, Brooklyn, Queens, Staten Island]}}
+      - {name: land_area_sq_mi, description: "Land area in square miles."}
+
+  - name: dim_neighborhood
+    description: >
+      Neighborhoods, as the city's 2020 Neighborhood Tabulation Areas (NTAs). 262 areas that nest
+      inside community districts and boroughs. Use nta_name to match a neighborhood a person
+      names, and nta_kind to leave out parks, cemeteries and airports when comparing rates.
+    meta: {domain: geography, grain: one row per NTA}
+    columns:
+      - name: nta_code
+        description: "NTA code, for example BK0101. Facts that carry a location have this column."
+        data_tests: [unique, not_null]
+      - {name: nta_name, description: "Neighborhood name, for example Greenpoint or Midtown-Times Square."}
+      - {name: nta_abbrev, description: "Short label used on maps."}
+      - name: nta_kind
+        description: residential, park, cemetery, airport, special_use or jail.
+        data_tests:
+          - accepted_values: {arguments: {values: [residential, park, cemetery, airport, special_use, jail]}}
+      - {name: is_residential, description: "True for ordinary residential neighborhoods."}
+      - {name: cdta_code, description: "Community District Tabulation Area containing the NTA."}
+      - {name: cdta_name, description: "Name of that area, which includes the community district it matches."}
+      - name: boro_code
+        description: Borough code.
+        data_tests: [{relationships: {arguments: {to: ref('dim_borough'), field: boro_code}}}]
+      - {name: borough, description: "Borough name."}
+      - {name: land_area_sq_mi, description: "Area in square miles."}
+      - {name: centroid_latitude, description: "Latitude of the area's center."}
+      - {name: centroid_longitude, description: "Longitude of the area's center."}
+
+  - name: dim_community_district
+    description: >
+      Community districts, the 59 local areas each with a community board, plus joint interest
+      areas for large parks and airports. 311 and many city reports are organized by these.
+    meta: {domain: geography, grain: one row per community district}
+    columns:
+      - name: community_district
+        description: "Borough code times 100 plus the district number. 305 is Brooklyn Community District 5."
+        data_tests: [unique, not_null]
+      - {name: boro_code, description: "Borough code."}
+      - {name: borough, description: "Borough name."}
+      - {name: district_number, description: "District number within the borough."}
+      - {name: district_name, description: "Readable name, for example Brooklyn Community District 5."}
+      - {name: is_joint_interest_area, description: "True for parks and airports outside the numbered districts."}
+      - {name: land_area_sq_mi, description: "Area in square miles."}
+
+  - name: dim_taxi_zone
+    description: >
+      TLC taxi zones, the 263 areas taxi and app trips are recorded by, plus two placeholder ids.
+      Trip facts use pickup_zone_id and dropoff_zone_id, which join to zone_id here.
+    meta: {domain: rideshare_taxi, grain: one row per zone}
+    columns:
+      - name: zone_id
+        description: TLC zone id, 1 to 265.
+        data_tests: [unique, not_null]
+      - {name: zone_name, description: "Zone name, for example JFK Airport or Upper East Side South."}
+      - {name: borough, description: "Borough. EWR for Newark Airport; empty for the placeholder zones 264 and 265."}
+      - {name: service_zone, description: "Yellow Zone (where yellow cabs take street hails), Boro Zone, Airports or EWR."}
+      - {name: zone_kind, description: "nyc, newark_airport, unknown (264) or outside_nyc (265)."}
+      - {name: is_airport, description: "True for JFK, LaGuardia and Newark."}
+      - {name: is_yellow_zone, description: "True inside the Yellow Zone, roughly Manhattan below 96th Street and the airports."}
+      - {name: centroid_nta_code, description: "Neighborhood at the zone's center. Zones and neighborhoods do not line up exactly."}
+      - {name: centroid_latitude, description: "Latitude of the zone's center."}
+      - {name: centroid_longitude, description: "Longitude of the zone's center."}
+
+  - name: dim_subway_route
+    description: Subway routes in the current schedule, such as the A, the 7 or the 42 St Shuttle (GS).
+    meta: {domain: subway, grain: one row per route}
+    columns:
+      - name: route_id
+        description: "Route id as riders know it: A, C, E, 1, 7, L, GS, FS, H, SI and so on."
+        data_tests: [unique, not_null]
+      - {name: route_short_name, description: "Name shown on the route bullet."}
+      - {name: route_long_name, description: "Line name, for example 8 Avenue Express."}
+      - {name: route_description, description: "Where and when the route runs."}
+      - {name: route_color, description: "Hex color of the route bullet."}
+      - {name: route_sort_order, description: "Order the MTA lists routes in."}
+      - {name: is_shuttle, description: "True for the 42 St (GS), Franklin Av (FS) and Rockaway Park (H) shuttles."}
+
+  - name: dim_subway_station
+    description: >
+      Subway stations from the MTA station list. Arrival facts use station_id. Stations joined
+      by passageways share a complex_id, and ridership is counted per complex.
+    meta: {domain: subway, grain: one row per station}
+    columns:
+      - name: station_id
+        description: "Station id in the schedule, for example R01. Platform ids add N or S."
+        data_tests: [unique, not_null]
+      - {name: complex_id, description: "Station complex. Joins to dim_subway_complex and to ridership."}
+      - {name: station_name, description: "Station name, for example Times Sq-42 St."}
+      - {name: borough, description: "Borough."}
+      - {name: boro_code, description: "Borough code."}
+      - {name: nta_code, description: "Neighborhood the station is in."}
+      - {name: community_district, description: "Community district the station is in."}
+      - {name: council_district, description: "Council district the station is in."}
+      - {name: police_precinct, description: "Police precinct the station is in."}
+      - {name: daytime_routes, description: "Routes that stop here during the day, as a list."}
+      - {name: daytime_routes_text, description: "The same routes as text, for example 'N W'. Use with LIKE or contains()."}
+      - {name: line, description: "Line the station is on, for example Astoria or Lexington Av."}
+      - {name: division, description: "Historical division: IRT, BMT or IND."}
+      - {name: structure, description: "Subway, Elevated, At Grade, Open Cut, Embankment or Viaduct."}
+      - {name: accessibility, description: "ADA accessibility: none, full or partial."}
+      - {name: is_accessible, description: "True when the station is fully or partly accessible."}
+      - {name: in_congestion_zone, description: "True inside the Manhattan congestion relief zone."}
+      - {name: north_direction_label, description: "Where northbound trains are signed to."}
+      - {name: south_direction_label, description: "Where southbound trains are signed to."}
+      - {name: latitude, description: "Latitude."}
+      - {name: longitude, description: "Longitude."}
+
+  - name: dim_subway_complex
+    description: Station complexes, the unit ridership is counted by. A complex is one station or several joined ones.
+    meta: {domain: subway, grain: one row per complex}
+    columns:
+      - name: complex_id
+        description: Complex id. Joins to fct_subway_ridership_hourly.complex_id.
+        data_tests: [unique, not_null]
+      - {name: complex_name, description: "Names of the stations in the complex."}
+      - {name: borough, description: "Borough."}
+      - {name: boro_code, description: "Borough code."}
+      - {name: nta_code, description: "Neighborhood of the complex."}
+      - {name: daytime_routes, description: "All daytime routes serving the complex."}
+      - {name: station_count, description: "Stations in the complex."}
+      - {name: is_accessible, description: "True when any station in the complex is accessible."}
+      - {name: latitude, description: "Average latitude of its stations."}
+      - {name: longitude, description: "Average longitude of its stations."}
+
+  - name: dim_bike_station
+    description: Citi Bike stations, including those in Jersey City and Hoboken.
+    meta: {domain: bike, grain: one row per station}
+    columns:
+      - name: station_id
+        description: Station id used by the live station status.
+        data_tests: [unique, not_null]
+      - {name: station_number, description: "Station number, for example 5506.14. Trips use this as start_station_number and end_station_number."}
+      - {name: station_name, description: "Station name, usually two cross streets."}
+      - {name: dock_count, description: "Number of docks."}
+      - {name: region, description: "NYC District, Bronx, JC District or Hoboken District."}
+      - {name: is_new_jersey, description: "True for Jersey City and Hoboken stations."}
+      - {name: has_charging, description: "True where e-bikes charge while docked."}
+      - {name: boro_code, description: "Borough. Empty in New Jersey."}
+      - {name: nta_code, description: "Neighborhood."}
+      - {name: community_district, description: "Community district."}
+      - {name: taxi_zone_id, description: "TLC taxi zone, for comparing bikes with taxi and app trips."}
+      - {name: latitude, description: "Latitude."}
+      - {name: longitude, description: "Longitude."}
+      - {name: first_seen_at, description: "First time the station appeared in the live feed after capture began."}
+      - {name: last_seen_at, description: "Latest time it appeared."}
+
+  - name: dim_traffic_link
+    description: Road links with DOT speed sensors, mostly highways and major arterials.
+    meta: {domain: traffic, grain: one row per link}
+    columns:
+      - name: link_id
+        description: Link id. Joins to fct_traffic_speed.
+        data_tests: [unique, not_null]
+      - {name: link_name, description: "DOT description: road, direction and end points, for example BQE N ATLANTIC AVE - BKN BRIDGE MANHATTAN."}
+      - {name: borough, description: "Borough."}
+      - {name: length_mi, description: "Length in miles."}
+      - {name: nta_code, description: "Neighborhood at the middle of the link."}
+      - {name: community_district, description: "Community district at the middle of the link."}
+      - {name: taxi_zone_id, description: "Taxi zone at the middle of the link."}
+      - {name: latitude, description: "Latitude of the middle of the link."}
+      - {name: longitude, description: "Longitude of the middle of the link."}
+      - {name: last_reading_at, description: "Latest reading for the link."}
