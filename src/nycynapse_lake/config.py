@@ -11,6 +11,7 @@ class Settings:
     data_path: Path
     tmp_path: Path
     spool_path: Path
+    state_path: Path = Path("/srv/nycynapse/state")
     memory_limit: str = "1GB"
     threads: int = 2
     socrata_app_token: str | None = None
@@ -28,6 +29,7 @@ class Settings:
             data_path=Path(os.environ.get("NYC_LAKE_DATA_PATH", "/srv/nycynapse/lake")),
             tmp_path=Path(os.environ.get("NYC_LAKE_TMP_PATH", "/srv/nycynapse/tmp")),
             spool_path=Path(os.environ.get("NYC_LAKE_SPOOL_PATH", "/srv/nycynapse/spool")),
+            state_path=Path(os.environ.get("NYC_LAKE_STATE_PATH", "/srv/nycynapse/state")),
             memory_limit=os.environ.get("NYC_LAKE_MEMORY_LIMIT", "1GB"),
             threads=int(os.environ.get("NYC_LAKE_THREADS", "2")),
             socrata_app_token=os.environ.get("SOCRATA_APP_TOKEN") or None,

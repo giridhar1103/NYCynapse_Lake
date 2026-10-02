@@ -19,11 +19,15 @@ def main(argv: list[str] | None = None) -> int:
     r = sub.add_parser("run", help="run one source")
     r.add_argument("source")
     r.add_argument("--force", action="store_true", help="reload even if upstream is unchanged")
+    po = sub.add_parser("poll", help="run a long-lived poller for a live source")
+    po.add_argument("source", choices=["subway_realtime"])
     m = sub.add_parser("maintain", help="compact files, expire old snapshots, purge quarantine")
     m.add_argument("--keep-days", type=int, default=30)
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    # One line per HTTP request drowns the journal once pollers run every 30 seconds.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
     if args.cmd == "check-contracts":
         found = contracts.load_all(Settings.from_env().contracts_path)
@@ -44,6 +48,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "sources":
         for name in sorted(MODULES):
             print(name)
+        return 0
+
+    if args.cmd == "poll":
+        from .realtime.poller import SubwayPoller
+
+        contract = contracts.load(settings.contracts_path / f"{args.source}.yaml")
+        SubwayPoller(settings, contract).run_forever()
         return 0
 
     if args.cmd == "maintain":

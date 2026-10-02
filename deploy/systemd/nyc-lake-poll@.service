@@ -1,0 +1,20 @@
+[Unit]
+Description=NYCynapse live poller: %i
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/NYCynapse_Lake
+EnvironmentFile=/root/.secrets/nycynapse.env
+Environment=HOME=/root
+ExecStart=/root/NYCynapse_Lake/.venv/bin/nyc-lake poll %i
+Restart=always
+RestartSec=15
+# The poller writes what it holds on SIGTERM before it exits.
+TimeoutStopSec=120
+MemoryMax=768M
+Nice=5
+
+[Install]
+WantedBy=multi-user.target
