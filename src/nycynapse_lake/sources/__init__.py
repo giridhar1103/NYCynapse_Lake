@@ -11,6 +11,7 @@ MODULES = {
     "nyc_311": "nycynapse_lake.sources.nyc_311",
     "nyc_collisions": "nycynapse_lake.sources.nyc_collisions",
     "weather": "nycynapse_lake.sources.weather",
+    "weather_alerts": "nycynapse_lake.sources.weather_alerts",
 }
 
 
