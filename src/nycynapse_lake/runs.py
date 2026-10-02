@@ -77,6 +77,7 @@ class RunContext:
         else:
             self.con.register(staged, data)
 
+        v = None
         try:
             v = quality.validate(self.con, table, staged)
             self.stats["rows_in"] += v.rows_in
@@ -93,9 +94,10 @@ class RunContext:
             self.stats["rows_written"] += result.rows_written
             self.snapshot_id = result.snapshot_id
             self._update_freshness(table, v.clean, exact=table.write == "replace_all")
-            self.con.execute(f"DROP TABLE IF EXISTS {v.clean}")
             return result.rows_written
         finally:
+            if v is not None:
+                v.cleanup(self.con)
             try:
                 self.con.unregister(staged)
             except duckdb.Error:

@@ -37,6 +37,11 @@ class Validated:
     duplicates: int
     rejected_sample: list[tuple[str, dict]]
     checks: list[Check]
+    temp_objects: list[tuple[str, str]] = field(default_factory=list)
+
+    def cleanup(self, con: duckdb.DuckDBPyConnection) -> None:
+        for kind, name in self.temp_objects:
+            con.execute(f"DROP {kind} IF EXISTS {name}")
 
 
 def _q(value) -> str:
@@ -105,8 +110,13 @@ def validate(con: duckdb.DuckDBPyConnection, table: Table, staged: str) -> Valid
     checked = f"_checked_{table.name}"
     con.execute(
         f"CREATE OR REPLACE TEMP TABLE {checked} AS "
-        f"SELECT {typed_cols}, {reason} AS _reject_reason, {_original(con, staged)} AS _original "
-        f"FROM {staged} s"
+        f"SELECT *, CASE WHEN _reject_reason IS NOT NULL THEN {_original(con, staged)} END "
+        f"AS _original FROM (SELECT s.*, {reason} AS _reject_reason FROM {staged} s) s"
+    )
+    con.execute(f"ALTER TABLE {checked} RENAME TO {checked}_raw")
+    con.execute(
+        f"CREATE OR REPLACE TEMP VIEW {checked} AS "
+        f"SELECT {typed_cols}, _reject_reason, _original FROM {checked}_raw s"
     )
     rows_in, rows_rejected = con.execute(
         f"SELECT count(*), count(_reject_reason) FROM {checked}"
@@ -122,6 +132,7 @@ def validate(con: duckdb.DuckDBPyConnection, table: Table, staged: str) -> Valid
 
     cols = ", ".join(f'"{c.name}"' for c in table.columns)
     clean = f"_clean_{table.name}"
+    temp = [("VIEW", checked), ("TABLE", f"{checked}_raw")]
     if table.primary_key:
         keys = ", ".join(f'"{k}"' for k in table.primary_key)
         order = f'"{table.version_column}" DESC NULLS LAST' if table.version_column else "1"
@@ -130,14 +141,16 @@ def validate(con: duckdb.DuckDBPyConnection, table: Table, staged: str) -> Valid
             f"WHERE _reject_reason IS NULL "
             f"QUALIFY row_number() OVER (PARTITION BY {keys} ORDER BY {order}) = 1"
         )
+        temp.insert(0, ("TABLE", clean))
     else:
+        # Without a key there is nothing to deduplicate, so a view avoids a second copy.
         con.execute(
-            f"CREATE OR REPLACE TEMP TABLE {clean} AS SELECT {cols} FROM {checked} "
+            f"CREATE OR REPLACE TEMP VIEW {clean} AS SELECT {cols} FROM {checked} "
             f"WHERE _reject_reason IS NULL"
         )
+        temp.insert(0, ("VIEW", clean))
     kept = con.execute(f"SELECT count(*) FROM {clean}").fetchone()[0]
     duplicates = rows_in - rows_rejected - kept
-    con.execute(f"DROP TABLE {checked}")
 
     reject_rate = rows_rejected / rows_in if rows_in else 0.0
     checks.append(
@@ -178,7 +191,7 @@ def validate(con: duckdb.DuckDBPyConnection, table: Table, staged: str) -> Valid
                 )
             )
 
-    return Validated(clean, rows_in, rows_rejected, duplicates, sample, checks)
+    return Validated(clean, rows_in, rows_rejected, duplicates, sample, checks, temp)
 
 
 def _original(con: duckdb.DuckDBPyConnection, staged: str) -> str:
