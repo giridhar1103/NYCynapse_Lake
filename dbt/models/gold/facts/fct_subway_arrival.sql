@@ -5,8 +5,9 @@
 ) }}
 {#
   Observed subway arrivals matched to the schedule in force on the service date.
-  The realtime trip id is the tail of the schedule's trip id, and the service pattern has to
-  run on that date. Trips with no scheduled match (added or rerouted trains) are kept with
+  Trips are matched on origin time, route and direction, the part of the trip id the
+  realtime feed and the schedule always share (the 7, the L and the Staten Island Railway
+  write the rest differently), and the service pattern has to run on that date. Trips with no scheduled match (added or rerouted trains) are kept with
   an empty scheduled time.
 #}
 with events as (
@@ -48,7 +49,8 @@ active as (
      and x.exception_type = 2
 ),
 scheduled_trips as (
-    select a.service_date, a.feed_version, t.realtime_trip_id, any_value(t.trip_id) as trip_id
+    select a.service_date, a.feed_version, {{ subway_trip_key('t.realtime_trip_id') }} as trip_key,
+           any_value(t.trip_id) as trip_id
     from active a
     join {{ source('silver', 'gtfs_trip') }} t
       on t.feed_version = a.feed_version and t.service_id = a.service_id
@@ -64,7 +66,7 @@ matched as (
         st.stop_sequence
     from events e
     left join scheduled_trips s
-      on s.service_date = e.service_date and s.realtime_trip_id = e.trip_id
+      on s.service_date = e.service_date and s.trip_key = {{ subway_trip_key('e.trip_id') }}
     left join {{ source('silver', 'gtfs_stop_time') }} st
       on st.feed_version = s.feed_version and st.trip_id = s.trip_id and st.stop_id = e.stop_id
 )

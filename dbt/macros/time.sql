@@ -14,3 +14,9 @@
 {% macro subway_route(col) -%}
     case when {{ col }} = 'SS' then 'SI' else {{ col }} end
 {%- endmacro %}
+
+{# Origin time, route and direction from a subway trip id: 104950_7..N97R -> 104950_7_N. #}
+{% macro subway_trip_key(col) -%}
+    regexp_extract({{ col }}, '^([0-9]{6})_', 1) || '_' || regexp_extract({{ col }}, '^[0-9]{6}_([A-Z0-9]+)', 1)
+    || '_' || regexp_extract({{ col }}, '^[0-9]{6}_[A-Z0-9]+\.+([NS])', 1)
+{%- endmacro %}
