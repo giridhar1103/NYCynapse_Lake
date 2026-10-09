@@ -14,7 +14,7 @@ class Control:
     def __init__(self, dsn: str):
         self.dsn = dsn
         self._conn: psycopg.Connection | None = None
-        self.conn  # connect now, so a bad DSN fails at startup
+        self.conn.execute("SELECT 1")  # connect now, so a bad DSN fails at startup
 
     @property
     def conn(self) -> psycopg.Connection:
