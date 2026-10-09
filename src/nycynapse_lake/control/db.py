@@ -13,12 +13,22 @@ MIGRATIONS = "nycynapse_lake.control.migrations"
 class Control:
     def __init__(self, dsn: str):
         self.dsn = dsn
-        self.conn = psycopg.connect(dsn, autocommit=True, row_factory=dict_row)
-        # The host clock is Europe/Berlin. Control data is always read and written in UTC.
-        self.conn.execute("SET TimeZone = 'UTC'")
+        self._conn: psycopg.Connection | None = None
+        self.conn  # connect now, so a bad DSN fails at startup
+
+    @property
+    def conn(self) -> psycopg.Connection:
+        # A Postgres restart (an unattended package upgrade did this once) closes every
+        # connection. Long-running pollers reconnect on next use instead of failing forever.
+        if self._conn is None or self._conn.closed or self._conn.broken:
+            self._conn = psycopg.connect(self.dsn, autocommit=True, row_factory=dict_row)
+            # The host clock is Europe/Berlin. Control data is always read and written in UTC.
+            self._conn.execute("SET TimeZone = 'UTC'")
+        return self._conn
 
     def close(self) -> None:
-        self.conn.close()
+        if self._conn is not None:
+            self._conn.close()
 
     @contextmanager
     def tx(self):
