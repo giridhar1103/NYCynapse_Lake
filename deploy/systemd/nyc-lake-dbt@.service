@@ -10,6 +10,8 @@ Environment=HOME=/root
 Environment=DBT_PROFILES_DIR=/root/NYCynapse_Lake/dbt
 Environment=DBT_RUN_KIND=%i
 ExecStart=/bin/sh -c 'if [ "%i" = daily ]; then exec /root/NYCynapse_Lake/.venv-dbt/bin/dbt build --selector daily; else exec /root/NYCynapse_Lake/.venv-dbt/bin/dbt run --selector %i; fi'
-MemoryMax=1792M
+MemoryMax=2304M
+# dbt itself and DuckDB write buffers sit on top of the DuckDB memory limit.
+Environment=NYC_LAKE_MEMORY_LIMIT=900MB
 Nice=10
 TimeoutStartSec=4h
