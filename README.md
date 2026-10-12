@@ -2,7 +2,7 @@
 
 [![ci](https://github.com/giridhar1103/NYCynapse_Lake/actions/workflows/ci.yml/badge.svg)](https://github.com/giridhar1103/NYCynapse_Lake/actions/workflows/ci.yml)
 
-The data side of NYCynapse. It pulls New York City transport and city data on each source's own schedule, checks it against a contract, and writes typed tables into a [DuckLake](https://ducklake.select/) lakehouse. The query side lives in [NYCynapse.Ai](https://github.com/giridhar1103/NYCynapse.Ai).
+The data side of NYCynapse. It pulls New York City transport and city data on each source's own schedule, checks it against a contract, and writes typed tables into a [DuckLake](https://ducklake.select/) lakehouse. The query side lives in [NYCynapse.Ai](https://github.com/giridhar1103/NYCynapse.Ai), a guide to the city you can ask anything, live at [giriworks.com/nycynapse](https://giriworks.com/nycynapse/).
 
 History starts in January 2024 and grows from there.
 
