@@ -18,10 +18,13 @@ nycynapse:
       database: lake
       schema: gold
       threads: 1
+      # Set once when the database opens. As a per-cursor setting DuckDB refuses it again
+      # after a model has spilled to disk, which failed every later model in the run.
+      # One spill directory per kind of run, so concurrent dbt runs never share files.
+      config_options:
+        temp_directory: "{{ env_var('NYC_LAKE_TMP_PATH', '/srv/nycynapse/tmp') }}/dbt-{{ env_var('DBT_RUN_KIND', 'manual') }}"
       settings:
         memory_limit: "{{ env_var('NYC_LAKE_MEMORY_LIMIT', '1GB') }}"
         threads: 2
         TimeZone: UTC
         preserve_insertion_order: false
-        # One spill directory per kind of run, so concurrent dbt runs never share files.
-        temp_directory: "{{ env_var('NYC_LAKE_TMP_PATH', '/srv/nycynapse/tmp') }}/dbt-{{ env_var('DBT_RUN_KIND', 'manual') }}"
