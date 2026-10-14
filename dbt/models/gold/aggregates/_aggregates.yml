@@ -25,3 +25,27 @@ models:
       - {name: driver_pay_usd_sum, description: "Total driver pay, app trips only."}
       - {name: cbd_congestion_fee_usd_sum, description: "Total congestion relief zone tolls."}
       - {name: trips_charged_cbd_fee, description: "Trips that paid the congestion relief zone toll."}
+  - name: agg_trip_times_zone_pair
+    description: >
+      Typical car trip times and fares between two taxi zones, by ride kind (taxi or app),
+      weekday or weekend and local pickup hour, from the last three months of plausible taxi and
+      app trips. Minutes and fares
+      are read from 2 minute and 2 dollar buckets, so they are accurate to about a minute or a
+      dollar. Pairs with fewer than 8 trips in an hour are left out.
+    meta: {domain: rideshare_taxi, grain: one row per ride kind, pickup zone, dropoff zone, day type and hour}
+    columns:
+      - name: ride_kind
+        description: taxi (yellow and green) or app (Uber, Lyft and other high-volume services).
+        data_tests: [not_null]
+      - {name: pickup_zone_id, description: "Pickup taxi zone."}
+      - {name: dropoff_zone_id, description: "Dropoff taxi zone."}
+      - name: day_type
+        description: weekday or weekend.
+        data_tests: [not_null]
+      - {name: pickup_hour, description: "Pickup hour in New York."}
+      - {name: trips, description: "Trips behind the figures."}
+      - {name: minutes_p25, description: "A quick trip: a quarter of trips were faster."}
+      - {name: minutes_median, description: "Typical trip time in minutes."}
+      - {name: minutes_p75, description: "A slow trip: a quarter of trips were slower."}
+      - {name: fare_usd_median, description: "Typical amount paid before tip, tolls and fees included."}
+      - {name: since_month, description: "First month of trips used."}
