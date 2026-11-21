@@ -16,8 +16,8 @@ sources:
       - {name: geo_taxi_zone}
       - {name: geo_piece}
       - {name: requests_311}
-      - {name: collision_crashes}
-      - {name: collision_persons}
+      - {name: collision_crash_records}
+      - {name: collision_person_records}
       - {name: weather_hourly}
       - {name: weather_recent_hourly}
       - {name: weather_alerts}

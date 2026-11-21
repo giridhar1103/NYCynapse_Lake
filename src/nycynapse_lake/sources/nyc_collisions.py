@@ -1,4 +1,8 @@
-"""NYPD motor vehicle collisions: crashes and the people involved."""
+"""NYPD motor vehicle collisions: crashes and the people involved.
+
+In June 2026 NYPD re-issued every crash and person id as 32 hex characters, for old records
+too, so the data loads into new tables with text ids (collision_crash_records and
+collision_person_records). The earlier tables, with numeric ids, are left as they were."""
 
 from .. import geo
 from ..runs import RunContext
@@ -114,19 +118,19 @@ def run(ctx: RunContext, *, force: bool = False) -> None:
         ctx,
         soda,
         CRASHES,
-        table="collision_crashes",
+        table="collision_crash_records",
         columns=CRASH_COLUMNS,
         where=SINCE,
         transform=crashes_sql,
-        key="crashes_after",
+        key="crash_records_after",
     )
     follow_changes(
         ctx,
         soda,
         PERSONS,
-        table="collision_persons",
+        table="collision_person_records",
         columns=PERSON_COLUMNS,
         where=SINCE,
         transform=persons_sql,
-        key="persons_after",
+        key="person_records_after",
     )

@@ -31,4 +31,4 @@ select
     zip_code,
     latitude,
     longitude
-from {{ source('silver', 'collision_crashes') }}
+from {{ source('silver', 'collision_crash_records') }}

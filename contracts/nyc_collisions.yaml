@@ -12,7 +12,7 @@ upstream:
   - https://data.cityofnewyork.us/resource/f55k-p6yu
 
 tables:
-  - name: collision_crashes
+  - name: collision_crash_records
     description: One row per reported crash.
     grain: one row per crash
     primary_key: [collision_id]
@@ -22,7 +22,7 @@ tables:
     partition_by: [year(crashed_at)]
     max_reject_rate: 0.001
     columns:
-      - {name: collision_id, type: BIGINT, nullable: false, description: "Crash id. Person records refer to it."}
+      - {name: collision_id, type: VARCHAR, nullable: false, description: "Crash id (32 hex characters since NYPD re-issued every id in June 2026). Person records refer to it."}
       - {name: crashed_at, type: TIMESTAMPTZ, nullable: false, description: "Date and time of the crash, published in New York time."}
       - {name: borough, type: VARCHAR, accepted: [Manhattan, Bronx, Brooklyn, Queens, Staten Island], description: "Borough as NYPD recorded it. Often empty for highway crashes."}
       - {name: zip_code, type: VARCHAR, description: "ZIP code as NYPD recorded it."}
@@ -58,7 +58,7 @@ tables:
       - {name: taxi_zone_id, type: SMALLINT, description: "TLC taxi zone the coordinates fall in."}
       - {name: source_updated_at, type: TIMESTAMPTZ, nullable: false, description: "When NYC Open Data last changed this row."}
 
-  - name: collision_persons
+  - name: collision_person_records
     description: One row per person involved in a reported crash, hurt or not.
     grain: one row per person per crash
     primary_key: [person_record_id]
@@ -68,8 +68,8 @@ tables:
     partition_by: [year(crashed_at)]
     max_reject_rate: 0.001
     columns:
-      - {name: person_record_id, type: BIGINT, nullable: false, description: "Id of this person record."}
-      - {name: collision_id, type: BIGINT, nullable: false, description: "Crash this person was involved in."}
+      - {name: person_record_id, type: VARCHAR, nullable: false, description: "Id of this person record (32 hex characters since June 2026)."}
+      - {name: collision_id, type: VARCHAR, nullable: false, description: "Crash this person was involved in."}
       - {name: crashed_at, type: TIMESTAMPTZ, nullable: false, description: "Date and time of the crash."}
       - {name: person_id, type: VARCHAR, description: "Id of the person within the crash."}
       - {name: vehicle_id, type: VARCHAR, description: "Vehicle the person was in or was hit by."}

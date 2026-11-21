@@ -17,4 +17,4 @@ select
     ped_location                                    as pedestrian_location,
     ped_action                                      as pedestrian_action,
     contributing_factor_1                           as contributing_factor
-from {{ source('silver', 'collision_persons') }}
+from {{ source('silver', 'collision_person_records') }}
