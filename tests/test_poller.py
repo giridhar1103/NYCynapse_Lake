@@ -152,3 +152,10 @@ def test_subway_take_returns_alerts_and_forgets_old_ones(settings, ctl):
     assert batches["subway_stop_events"] is None
     assert "gone" not in p.alert_seen and "a1" in p.alert_seen
     assert p.take()["subway_alerts"] is None
+
+
+def test_a_quiet_feed_can_be_given_longer(settings, ctl):
+    p = Demo(settings)
+    now = int(time.time())
+    assert not p.fresh("trips", now - 400, now)
+    assert p.fresh("alerts", now - 400, now, 1800)

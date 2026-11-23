@@ -24,6 +24,7 @@ FEEDS = {
 }
 ALERTS = BASE + "camsys%2Fsubway-alerts.json"
 TS = pa.timestamp("s", tz="UTC")
+ALERTS_STALE = 1800  # at night the alerts can go many minutes without a change
 ALERT_SCHEMA = pa.schema(
     [
         ("alert_id", pa.string()),
@@ -74,7 +75,7 @@ class SubwayPoller(Poller):
             payload = self.fetch("alerts", ALERTS, now, json_body=True)
             if isinstance(payload, dict) and "entity" in payload:
                 stamp = (payload.get("header") or {}).get("timestamp")
-                if self.fresh("alerts", int(stamp) if stamp else None, now):
+                if self.fresh("alerts", int(stamp) if stamp else None, now, ALERTS_STALE):
                     self._alerts(payload, now)
             elif payload is not None:
                 self._down("alerts", now, "has no entity list")

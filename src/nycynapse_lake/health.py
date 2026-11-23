@@ -136,7 +136,8 @@ def volume(ctl: Control) -> list[Problem]:
             r["source"],
         )
         for r in rows
-        if r["rows_in"] < r["usual"] * VOLUME_FLOOR
+        # A live poller's first write after a restart is short; its data limit watches it instead.
+        if r["source"] not in LIVE and r["rows_in"] < r["usual"] * VOLUME_FLOOR
     ]
 
 

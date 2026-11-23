@@ -111,10 +111,10 @@ class Poller:
             return None
         return body
 
-    def fresh(self, name: str, stamp: int | None, now: int) -> bool:
+    def fresh(self, name: str, stamp: int | None, now: int, limit: int = STALE_SECONDS) -> bool:
         """Whether a feed that answered is alive, by its own timestamp. Records the outage when
         it comes back. A feed that keeps answering with an old message counts as down."""
-        if stamp and now - stamp > STALE_SECONDS:
+        if stamp and now - stamp > limit:
             self._down(name, now, f"stopped updating {now - stamp} s ago")
             return False
         since = self.down_since.pop(name, None)
