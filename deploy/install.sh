@@ -3,6 +3,10 @@
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 install -m 0644 "$here"/systemd/*.service "$here"/systemd/*.timer /etc/systemd/system/
+for d in "$here"/systemd/*.service.d; do
+    install -d "/etc/systemd/system/$(basename "$d")"
+    install -m 0644 "$d"/*.conf "/etc/systemd/system/$(basename "$d")/"
+done
 systemctl daemon-reload
 for t in "$here"/systemd/*.timer; do
     systemctl enable --now "$(basename "$t")"

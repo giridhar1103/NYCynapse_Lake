@@ -61,7 +61,7 @@ Every source above is live. Row counts on 3 October 2026, with Citi Bike trips a
 | `subway_ridership_hourly` | 45 million and growing |
 | `traffic_speed_obs` | 34 million |
 | `requests_311` | 10.1 million |
-| `collision_crashes`, `collision_persons` | 213 thousand, 733 thousand |
+| `collision_crash_records`, `collision_person_records` | 251 thousand, 857 thousand |
 | `weather_hourly`, `weather_alerts` | 120 thousand, 1.1 thousand |
 | `subway_stop_events`, `bike_station_status` | live since 2 October 2026 |
 | subway schedule (`gtfs_*`) | 740 thousand per version |

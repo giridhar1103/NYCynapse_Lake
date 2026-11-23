@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterable
 from ..runs import RunContext
 from ..socrata import Dataset, Page, Socrata
 
-PAGES_PER_LOAD = 6
+PAGES_PER_LOAD = 2  # six at once ran the 311 load past its memory cap
 CHANGE_KEYS = (":updated_at", ":id")
 
 
