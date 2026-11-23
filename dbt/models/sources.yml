@@ -50,3 +50,4 @@ sources:
       - {name: runs}
       - {name: table_freshness}
       - {name: feed_gaps}
+      - {name: upstream_files}

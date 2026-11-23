@@ -9,8 +9,8 @@ models:
       - {name: domain, description: "Domain of the source."}
       - {name: cadence, description: "How often the source publishes."}
       - {name: freshness_sla, description: "How old the last successful load may be before the table counts as stale."}
-      - {name: coverage_start, description: "Earliest event time in the table."}
-      - {name: coverage_end, description: "Latest event time in the table."}
+      - {name: coverage_start, description: "Earliest event time questions may rely on; stray earlier dates are ignored."}
+      - {name: coverage_end, description: "Latest event time questions may rely on; taxi tables end with the last month loaded."}
       - {name: row_count, description: "Rows in the table."}
       - {name: last_loaded_at, description: "When a load last wrote to the table."}
       - {name: last_success_at, description: "When the source last finished a run successfully."}
