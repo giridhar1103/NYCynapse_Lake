@@ -10,10 +10,12 @@ from pathlib import Path
 import httpx
 
 from . import __version__
-from .retry import Retryable, RetryPolicy, retry
+from .retry import Retryable, RetryPolicy, backoff, retry
 
 USER_AGENT = f"NYCynapse-Lake/{__version__} (github.com/giridhar1103/NYCynapse_Lake)"
 RETRY_STATUS = {408, 425, 429, 500, 502, 503, 504}
+# What file hosts answer for a file that is not there. S3 and CloudFront say 403 for that.
+ABSENT_STATUS = {403, 404, 410}
 DEFAULT_POLICY = RetryPolicy()
 
 
@@ -80,7 +82,36 @@ class Http:
         return retry(once, self.policy, sleep=self.sleep)
 
     def get_json(self, url: str, **kw):
-        return self.get(url, **kw).json()
+        """The parsed body. An error page or a cut-off body behind a 200 is retried."""
+
+        tries = min(3, self.policy.attempts)
+        for attempt in range(tries):
+            resp = self.get(url, **kw)  # retries transport and server errors itself
+            try:
+                return resp.json()
+            except ValueError as exc:
+                if attempt == tries - 1:
+                    kind = resp.headers.get("Content-Type", "unknown type")
+                    raise Retryable(
+                        f"not JSON from {url} ({kind}, {len(resp.content)} bytes)"
+                    ) from exc
+                self.sleep(backoff(self.policy, attempt))
+        raise AssertionError("unreachable")
+
+    def exists(self, url: str) -> bool:
+        """Whether a file is published. A server error is an error, never "not yet"."""
+
+        def once():
+            try:
+                resp = self.client.head(url)
+            except httpx.TransportError as exc:
+                raise Retryable(f"{type(exc).__name__} on {url}") from exc
+            if resp.status_code in ABSENT_STATUS:
+                return False
+            self._check(resp)
+            return True
+
+        return retry(once, self.policy, sleep=self.sleep)
 
     def download(
         self,
@@ -119,6 +150,8 @@ class Http:
                             out.write(chunk)
                             digest.update(chunk)
                             size += len(chunk)
+                    if size == 0:
+                        raise Retryable(f"empty body from {url}")
                     encoded = "Content-Encoding" in resp.headers
                     if expected and int(expected) != size and not encoded:
                         raise Retryable(f"short read on {url}: {size} of {expected} bytes")

@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='overwrite') }}
 select
     d.boro_cd                                   as community_district,
     d.boro_code,

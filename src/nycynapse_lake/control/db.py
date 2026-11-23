@@ -21,7 +21,17 @@ class Control:
         # A Postgres restart (an unattended package upgrade did this once) closes every
         # connection. Long-running pollers reconnect on next use instead of failing forever.
         if self._conn is None or self._conn.closed or self._conn.broken:
-            self._conn = psycopg.connect(self.dsn, autocommit=True, row_factory=dict_row)
+            self._conn = psycopg.connect(
+                self.dsn,
+                autocommit=True,
+                row_factory=dict_row,
+                # A database that has gone away must be noticed, not waited for.
+                connect_timeout=15,
+                keepalives_idle=30,
+                keepalives_interval=10,
+                keepalives_count=3,
+            )
+            self._conn.execute("SET statement_timeout = '5min'")
             # The host clock is Europe/Berlin. Control data is always read and written in UTC.
             self._conn.execute("SET TimeZone = 'UTC'")
         return self._conn
@@ -127,6 +137,16 @@ class Control:
             ),
         )
 
+    def reap_runs(self, source: str) -> int:
+        """Close runs a killed process left open. Only call this while holding the source lock."""
+        cur = self.conn.execute(
+            "UPDATE ops.runs SET status = 'failed', finished_at = now(), "
+            "error = 'the process ended without finishing (killed or crashed)' "
+            "WHERE source = %s AND status = 'running'",
+            (source,),
+        )
+        return cur.rowcount
+
     # checkpoints
 
     def get_checkpoint(self, source: str, key: str):
@@ -221,6 +241,33 @@ class Control:
         )
         return cur.rowcount
 
+    def purge_history(self, *, dq_days: int, run_days: int) -> int:
+        """Old check results and routine runs. Failures and the last run of a source stay."""
+        n = self.conn.execute(
+            "DELETE FROM ops.dq_results WHERE checked_at < now() - make_interval(days => %s)",
+            (dq_days,),
+        ).rowcount
+        n += self.conn.execute(
+            "DELETE FROM ops.runs r WHERE started_at < now() - make_interval(days => %s) "
+            "AND status IN ('succeeded', 'skipped') AND EXISTS (SELECT 1 FROM ops.runs k "
+            "WHERE k.source = r.source AND k.started_at > r.started_at) "
+            "AND NOT EXISTS (SELECT 1 FROM ops.upstream_files f WHERE f.loaded_run_id = r.run_id) "
+            "AND NOT EXISTS (SELECT 1 FROM ops.table_freshness t WHERE t.last_run_id = r.run_id)",
+            (run_days,),
+        ).rowcount
+        n += self.conn.execute(
+            "DELETE FROM ops.jobs WHERE finished_at < now() - interval '180 days'"
+        ).rowcount
+        return n
+
+    # jobs
+
+    def record_job(self, job: str, ok: bool, detail: dict | None = None) -> None:
+        self.conn.execute(
+            "INSERT INTO ops.jobs (job, ok, detail) VALUES (%s, %s, %s)",
+            (job, ok, Jsonb(detail or {})),
+        )
+
     # live feed gaps and freshness
 
     def record_gap(self, source: str, start, end, reason: str) -> None:
@@ -246,6 +293,7 @@ class Control:
         row_count: int,
         run_id,
         exact: bool = False,
+        data_sla: str | None = None,
     ) -> None:
         """Record what a table covers.
 
@@ -261,12 +309,22 @@ class Control:
         self.conn.execute(
             f"""
             INSERT INTO ops.table_freshness (table_name, source, event_column, coverage_start,
-                                             coverage_end, row_count, last_loaded_at, last_run_id)
-            VALUES (%s, %s, %s, %s, %s, %s, now(), %s)
+                                             coverage_end, row_count, last_loaded_at, last_run_id,
+                                             data_sla)
+            VALUES (%s, %s, %s, %s, %s, %s, now(), %s, %s)
             ON CONFLICT (table_name) DO UPDATE SET
                 source = EXCLUDED.source, event_column = EXCLUDED.event_column, {merge},
                 row_count = EXCLUDED.row_count, last_loaded_at = now(),
-                last_run_id = EXCLUDED.last_run_id
+                last_run_id = EXCLUDED.last_run_id, data_sla = EXCLUDED.data_sla
             """,
-            (table, source, event_column, coverage_start, coverage_end, row_count, run_id),
+            (
+                table,
+                source,
+                event_column,
+                coverage_start,
+                coverage_end,
+                row_count,
+                run_id,
+                data_sla,
+            ),
         )

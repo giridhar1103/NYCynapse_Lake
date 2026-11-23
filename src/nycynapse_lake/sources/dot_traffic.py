@@ -1,6 +1,7 @@
 """NYC DOT traffic speeds: readings per road link, plus the links themselves."""
 
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pyarrow as pa
 
@@ -100,11 +101,18 @@ def run(ctx: RunContext, *, force: bool = False) -> None:
         soda.pages(DS, tmp, columns=OBS_COLUMNS, where=f"data_as_of > '{since}'", page_size=PAGE),
         obs_sql,
     )
-    newest = soda.scalar(DS, "max(data_as_of)")
+    # One reading dated in the future would move the checkpoint past everything that follows.
+    now = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%dT%H:%M:%S")
+    newest = soda.scalar(DS, "max(data_as_of)", f"data_as_of <= '{now}'")
     if newest:
-        ctx.advance("latest_reading", newest)
+        ctx.save("latest_reading", min(newest, now))
 
     # Links change rarely. Refresh them once a day from the latest reading of each.
+    with ctx.part("links"):
+        _links(ctx, soda)
+
+
+def _links(ctx: RunContext, soda: Socrata) -> None:
     today = date.today().isoformat()
     if ctx.checkpoint("links_refreshed") != today:
         recent = (date.today() - timedelta(days=7)).isoformat()

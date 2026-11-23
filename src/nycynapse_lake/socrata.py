@@ -15,6 +15,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 from .http import Downloaded, Http
+from .retry import Retryable
 
 PAGE_SIZE = 50_000
 # Socrata can take minutes before the first byte of a large filtered page, then stream fast.
@@ -83,7 +84,11 @@ class Socrata:
                 headers=self.headers,
                 timeout=PAGE_TIMEOUT,
             )
-            rows, last = _scan(got.path, keys)
+            try:
+                rows, last = _scan(got.path, keys)
+            except Retryable:
+                got.path.unlink(missing_ok=True)
+                raise
             if rows == 0:
                 got.path.unlink(missing_ok=True)
                 return
@@ -110,9 +115,18 @@ def _scan(path: Path, keys: tuple[str, ...]) -> tuple[int, tuple[str, ...]]:
         header = next(reader, None)
         if header is None:
             return 0, ()
+        missing = [k for k in keys if k not in header]
+        if missing:
+            # An error page served with a 200, or a change in the API.
+            raise Retryable(f"unexpected Socrata body: no {missing} in {header[:3]}")
         idx = [header.index(k) for k in keys]
         rows, last = 0, ()
         for record in reader:
+            if len(record) != len(header):
+                raise Retryable(
+                    f"cut-off Socrata page: row {rows + 1} has {len(record)} of "
+                    f"{len(header)} fields"
+                )
             rows += 1
             last = tuple(record[i] for i in idx)
         return rows, last

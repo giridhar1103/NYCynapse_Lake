@@ -1,0 +1,13 @@
+[Unit]
+Description=NYCynapse lake health check
+After=postgresql.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/NYCynapse_Lake
+EnvironmentFile=/root/.secrets/nycynapse.env
+Environment=HOME=/root
+ExecStart=/root/NYCynapse_Lake/.venv/bin/nyc-lake health
+MemoryMax=400M
+Nice=15
+TimeoutStartSec=5min

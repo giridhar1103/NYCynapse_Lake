@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='overwrite') }}
 with latest as (
     select feed_version from {{ source('silver', 'gtfs_feed_version') }}
     order by loaded_at desc limit 1

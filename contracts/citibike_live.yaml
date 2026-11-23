@@ -20,6 +20,8 @@ tables:
     write: append_new
     event_time: reported_at
     partition_by: [year(reported_at), month(reported_at)]
+    data_sla: 45 minutes
+    max_reject_rate: 0.05
     columns:
       - {name: station_id, type: VARCHAR, nullable: false, description: "Station id. Joins to bike_station."}
       - {name: reported_at, type: TIMESTAMPTZ, nullable: false, description: "When the station reported these values."}
@@ -38,6 +40,7 @@ tables:
     grain: one row per station
     primary_key: [station_id]
     write: merge
+    max_reject_rate: 0.05
     columns:
       - {name: station_id, type: VARCHAR, nullable: false, description: "Station id used by the live feeds."}
       - {name: short_name, type: VARCHAR, description: "Station number, for example 8775.03. Trip history uses this as the station id."}

@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='overwrite') }}
 select
     boro_code,
     boro_name                                   as borough,

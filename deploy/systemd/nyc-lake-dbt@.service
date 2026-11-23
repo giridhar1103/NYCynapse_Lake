@@ -1,6 +1,8 @@
 [Unit]
 Description=NYCynapse gold models: %i
 After=postgresql.service
+StartLimitIntervalSec=4h
+StartLimitBurst=3
 
 [Service]
 Type=oneshot
@@ -15,3 +17,5 @@ MemoryMax=2304M
 Environment=NYC_LAKE_MEMORY_LIMIT=900MB
 Nice=10
 TimeoutStartSec=4h
+Restart=on-failure
+RestartSec=10min

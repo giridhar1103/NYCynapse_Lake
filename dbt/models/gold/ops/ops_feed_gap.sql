@@ -1,3 +1,4 @@
+{{ config(allow_empty=true) }}
 select
     split_part(source, ':', 1)                      as source,
     nullif(split_part(source, ':', 2), '')          as feed,

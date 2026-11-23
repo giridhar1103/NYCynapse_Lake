@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='overwrite') }}
 {#
   Settled archive values where they exist, model values for the most recent days and the
   next day. is_forecast marks hours that had not happened when the values were fetched.

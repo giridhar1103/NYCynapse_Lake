@@ -41,6 +41,8 @@ class Table:
     partition_by: tuple[str, ...] = ()
     min_rows: int = 0
     max_reject_rate: float = 0.0
+    max_shrink: float = 0.2  # how much of its rows one replacing write may remove
+    data_sla: str | None = None  # how old the newest event may be before the source is late
 
     @property
     def qualified(self) -> str:
@@ -101,6 +103,8 @@ TABLE_KEYS = {
     "partition_by",
     "min_rows",
     "max_reject_rate",
+    "max_shrink",
+    "data_sla",
 }
 
 
@@ -156,7 +160,11 @@ def _table(raw: dict) -> Table:
         partition_by=tuple(raw.get("partition_by", [])),
         min_rows=int(raw.get("min_rows", 0)),
         max_reject_rate=float(raw.get("max_reject_rate", 0.0)),
+        max_shrink=float(raw.get("max_shrink", 0.2)),
+        data_sla=raw.get("data_sla"),
     )
+    if t.data_sla and not t.event_time:
+        raise ContractError(f"{name}: data_sla needs an event_time")
     if t.write not in WRITE_MODES:
         raise ContractError(f"{name}: write must be one of {sorted(WRITE_MODES)}")
     if t.write in {"merge", "append_new"} and not t.primary_key:

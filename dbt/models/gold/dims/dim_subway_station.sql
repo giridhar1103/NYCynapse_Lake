@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='overwrite') }}
 select
     gtfs_stop_id                                as station_id,
     complex_id,

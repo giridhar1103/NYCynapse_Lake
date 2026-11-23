@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 REPO_CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
@@ -7,14 +7,15 @@ REPO_CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
 
 @dataclass(frozen=True)
 class Settings:
-    pg_dsn: str
+    pg_dsn: str = field(repr=False)  # holds the password
     data_path: Path
     tmp_path: Path
     spool_path: Path
     state_path: Path = Path("/srv/nycynapse/state")
+    backup_path: Path = Path("/root/backups/nycynapse-lake")
     memory_limit: str = "1GB"
     threads: int = 2
-    socrata_app_token: str | None = None
+    socrata_app_token: str | None = field(default=None, repr=False)
     contracts_path: Path = REPO_CONTRACTS
     # A test run can point the lake at a local DuckDB catalog instead of Postgres.
     catalog_override: str | None = None
@@ -30,6 +31,9 @@ class Settings:
             tmp_path=Path(os.environ.get("NYC_LAKE_TMP_PATH", "/srv/nycynapse/tmp")),
             spool_path=Path(os.environ.get("NYC_LAKE_SPOOL_PATH", "/srv/nycynapse/spool")),
             state_path=Path(os.environ.get("NYC_LAKE_STATE_PATH", "/srv/nycynapse/state")),
+            backup_path=Path(
+                os.environ.get("NYC_LAKE_BACKUP_PATH", "/root/backups/nycynapse-lake")
+            ),
             memory_limit=os.environ.get("NYC_LAKE_MEMORY_LIMIT", "1GB"),
             threads=int(os.environ.get("NYC_LAKE_THREADS", "2")),
             socrata_app_token=os.environ.get("SOCRATA_APP_TOKEN") or None,

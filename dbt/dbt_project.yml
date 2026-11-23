@@ -19,7 +19,7 @@ models:
       aggregates:
         +materialized: table
       ops:
-        +materialized: table
+        +materialized: overwrite
 
 seeds:
   nycynapse:

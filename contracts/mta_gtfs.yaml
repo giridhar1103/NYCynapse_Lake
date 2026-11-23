@@ -6,7 +6,7 @@ description: >
   feed_version, so a train observed on any date can be compared with the schedule that was in
   force that day. Only versions published after loading started are available.
 cadence: daily
-freshness_sla: 45 days
+freshness_sla: 3 days
 upstream:
   - https://rrgtfsfeeds.s3.amazonaws.com/gtfs_subway.zip
 

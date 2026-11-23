@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='overwrite') }}
 select
     complex_id,
     string_agg(distinct station_name, ' / ' order by station_name) as complex_name,

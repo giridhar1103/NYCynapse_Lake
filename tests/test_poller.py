@@ -59,13 +59,72 @@ def test_flush_applies_transforms_and_replays_the_spool(settings, ctl, con):
     assert p.state_file.exists()
 
 
-def test_failed_flush_keeps_rows_in_the_spool(settings, ctl, con):
+def test_a_batch_that_breaks_its_contract_is_set_aside_and_can_be_replayed(settings, ctl, con):
     p = Demo(dataclasses.replace(settings))
     p.con = con
+    good = p.transforms
     p.transforms = {"reading": lambda rel: f"SELECT id FROM {rel}"}  # breaks the contract
     p.poll(0)
     p.flush()
-    assert len(p.spool.pending()) == 1
+    assert (len(p.spool.pending()), len(p.spool.dead())) == (0, 1)
+    p.transforms = good
+    p.poll(0)
+    p.flush()  # later batches are not held up
+    assert p.spool.revive() == 1
+    p.flush()
+    assert con.execute("SELECT count(*) FROM lake.silver.reading").fetchone()[0] >= 1
+    assert p.spool.pending() == p.spool.dead() == []
+
+
+def test_an_unreachable_lake_keeps_every_batch(settings, ctl, con, monkeypatch):
+    p = Demo(settings)
+
+    def down(*a, **k):
+        raise ConnectionError("no lake")
+
+    monkeypatch.setattr("nycynapse_lake.realtime.base.lake.connect", down)
+    for _ in range(3):
+        p.poll(0)
+        p.flush()
+    assert len(p.spool.pending()) == 3
+    p.con = con
+    p.flush()
+    assert p.spool.pending() == []
+
+
+def test_a_damaged_state_file_does_not_stop_the_start(settings, ctl):
+    p = Demo(settings)
+    p.state_file.write_text('{"saved_at": 1')
+    p.restore()
+    assert p.state_file.with_suffix(".damaged").exists()
+    assert not p.state_file.exists()
+
+
+def test_a_feed_that_keeps_answering_with_an_old_message_is_down(settings, ctl):
+    p = Demo(settings)
+    now = int(time.time())
+    assert not p.fresh("a", now - 3600, now)
+    assert "a" in p.down_since
+    assert p.fresh("a", now + 200, now + 200)
+    assert p.down_since == {}
+    assert ctl.conn.execute("SELECT count(*) AS n FROM ops.feed_gaps").fetchone()["n"] == 1
+
+
+def test_a_poll_that_raises_does_not_end_the_process(settings, ctl, con):
+    p = Demo(settings)
+    p.con = con
+    p.interval = 0
+    calls = []
+
+    def poll(now):
+        calls.append(now)
+        if len(calls) >= 4:
+            p.stop.set()
+        raise ValueError("odd message")
+
+    p.poll = poll
+    p.run_forever()
+    assert len(calls) == 4
 
 
 def test_subway_take_returns_alerts_and_forgets_old_ones(settings, ctl):

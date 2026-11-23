@@ -1,10 +1,26 @@
 """Helper for sources published as whole files."""
 
+import zipfile
 from collections.abc import Iterator
 from contextlib import contextmanager
+from pathlib import Path
 
 from ..http import Downloaded
+from ..retry import Retryable
 from ..runs import RunContext
+
+
+@contextmanager
+def open_zip(path: Path) -> Iterator[zipfile.ZipFile]:
+    """A zip that has been checked end to end. A damaged one counts as a bad download."""
+    try:
+        with zipfile.ZipFile(path) as z:
+            broken = z.testzip()
+            if broken:
+                raise Retryable(f"{path.name}: damaged member {broken}")
+            yield z
+    except zipfile.BadZipFile as exc:
+        raise Retryable(f"not a zip file: {exc}") from exc
 
 
 @contextmanager

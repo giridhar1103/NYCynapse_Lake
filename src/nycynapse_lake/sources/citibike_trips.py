@@ -1,12 +1,12 @@
 """Citi Bike monthly trip files: a zip of CSVs per month, loaded whole into its partition."""
 
 import shutil
-import zipfile
 from datetime import date
 
 from .. import geo
+from ..retry import Retryable
 from ..runs import RunContext
-from .files import fetch_if_changed
+from .files import fetch_if_changed, open_zip
 
 URL = "https://s3.amazonaws.com/tripdata/{month}-citibike-tripdata.zip"
 START = date(2024, 1, 1)
@@ -53,30 +53,37 @@ def run(ctx: RunContext, *, force: bool = False) -> None:
     recent = set(months[-LOOKBACK_MONTHS:])
     for month in [m for m in months if m.isoformat() not in loaded or m in recent]:
         url = URL.format(month=month.strftime("%Y%m"))
+        done = False
+        with ctx.part(month.isoformat()[:7]):
+            done = _load(ctx, month, url, force=force)
+        if done:
+            loaded.add(month.isoformat())
+            ctx.save("loaded_months", sorted(loaded))
+
+
+def _load(ctx: RunContext, month: date, url: str, *, force: bool) -> bool:
+    """Load one month's zip. False when it is not published yet."""
+    if not ctx.http.exists(url):
+        return False
+    with fetch_if_changed(ctx, url, force=force) as got:
+        if got is None:
+            return True
+        unpacked = got.path.with_suffix(".d")
+        unpacked.mkdir()
         try:
-            ctx.http.client.head(url).raise_for_status()
-        except Exception:  # noqa: BLE001 - not published yet
-            continue
-        with fetch_if_changed(ctx, url, force=force) as got:
-            if got is not None:
-                unpacked = got.path.with_suffix(".d")
-                unpacked.mkdir()
-                try:
-                    with zipfile.ZipFile(got.path) as z:
-                        for name in z.namelist():
-                            if name.endswith(".csv") and "__MACOSX" not in name:
-                                with (
-                                    z.open(name) as src,
-                                    open(unpacked / name.split("/")[-1], "wb") as dst,
-                                ):
-                                    shutil.copyfileobj(src, dst, 1 << 20)
-                    ctx.load(
-                        "bike_trips",
-                        trips_sql(f"{unpacked}/*.csv", month),
-                        partition_filter=f"file_month = DATE '{month.isoformat()}'",
-                    )
-                    ctx.detail.setdefault("loaded", []).append(month.isoformat()[:7])
-                finally:
-                    shutil.rmtree(unpacked, ignore_errors=True)
-        loaded.add(month.isoformat())
-        ctx.save("loaded_months", sorted(loaded))
+            with open_zip(got.path) as z:
+                names = [n for n in z.namelist() if n.endswith(".csv") and "__MACOSX" not in n]
+                for i, name in enumerate(names):
+                    with z.open(name) as src, open(unpacked / f"{i}.csv", "wb") as dst:
+                        shutil.copyfileobj(src, dst, 1 << 20)
+            if not names:
+                raise Retryable(f"no CSV files in {url}")
+            ctx.load(
+                "bike_trips",
+                trips_sql(f"{unpacked}/*.csv", month),
+                partition_filter=f"file_month = DATE '{month.isoformat()}'",
+            )
+            ctx.detail.setdefault("loaded", []).append(month.isoformat()[:7])
+        finally:
+            shutil.rmtree(unpacked, ignore_errors=True)
+    return True

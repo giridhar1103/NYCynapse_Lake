@@ -21,6 +21,8 @@ tables:
     write: append_new
     event_time: arrived_at
     partition_by: [service_date]
+    data_sla: 45 minutes
+    max_reject_rate: 0.05
     columns:
       - {name: trip_uid, type: VARCHAR, nullable: false, description: "Service date and realtime trip id, for example 2026-10-02/087450_A..N55R."}
       - {name: service_date, type: DATE, nullable: false, description: "Service day the trip belongs to. Trips after midnight keep the previous day."}
@@ -47,6 +49,7 @@ tables:
     write: append_new
     event_time: first_seen_at
     partition_by: [service_date]
+    max_reject_rate: 0.05
     columns:
       - {name: trip_uid, type: VARCHAR, nullable: false, description: "Service date and realtime trip id."}
       - {name: service_date, type: DATE, nullable: false, description: "Service day."}
@@ -69,6 +72,7 @@ tables:
     # Coverage follows when the feed carried an alert, not when the MTA created it. Alerts still
     # running when capture began were created months earlier, but nothing before that was seen.
     event_time: first_seen_at
+    max_reject_rate: 0.05
     columns:
       - {name: alert_id, type: VARCHAR, nullable: false, description: "MTA alert id."}
       - {name: alert_type, type: VARCHAR, description: "MTA category, for example Delays, Planned - Part Suspended, Station Notice."}

@@ -2,6 +2,9 @@
 
 from datetime import date
 
+import duckdb
+
+from ..retry import Retryable
 from ..runs import RunContext
 from .files import fetch_if_changed
 
@@ -100,29 +103,37 @@ def run(ctx: RunContext, *, force: bool = False, kinds: tuple[str, ...] = tuple(
         complete = True
         for kind in kinds:
             url = BASE.format(kind=kind, month=month.strftime("%Y-%m"))
-            try:
-                ctx.http.client.head(url).raise_for_status()
-            except Exception:  # noqa: BLE001 - not published yet
-                complete = False
-                continue
-            with fetch_if_changed(ctx, url, force=force) as got:
-                if got is None:
-                    continue
-                present = {
-                    r[0].lower()
-                    for r in ctx.con.execute(
-                        f"DESCRIBE SELECT * FROM read_parquet('{got.path}')"
-                    ).fetchall()
-                }
-                sql = (
-                    fhvhv_sql(str(got.path), month, present)
-                    if kind == "fhvhv"
-                    else taxi_sql(str(got.path), month, present, green=kind == "green")
-                )
-                ctx.load(
-                    KINDS[kind], sql, partition_filter=f"file_month = DATE '{month.isoformat()}'"
-                )
-                ctx.detail.setdefault("loaded", []).append(f"{kind} {month:%Y-%m}")
+            name = f"{kind} {month:%Y-%m}"
+            done = False
+            with ctx.part(name):
+                done = _load(ctx, kind, month, url, force=force)
+            complete = complete and done
         if complete:
             loaded.add(month.isoformat())
             ctx.save("loaded_months", sorted(loaded))
+
+
+def _load(ctx: RunContext, kind: str, month: date, url: str, *, force: bool) -> bool:
+    """Load one file. False when it is not published yet."""
+    if not ctx.http.exists(url):
+        return False
+    with fetch_if_changed(ctx, url, force=force) as got:
+        if got is None:
+            return True
+        try:
+            present = {
+                r[0].lower()
+                for r in ctx.con.execute(
+                    f"DESCRIBE SELECT * FROM read_parquet('{got.path}')"
+                ).fetchall()
+            }
+        except duckdb.Error as exc:
+            raise Retryable(f"{url} is not a readable Parquet file: {exc}") from exc
+        sql = (
+            fhvhv_sql(str(got.path), month, present)
+            if kind == "fhvhv"
+            else taxi_sql(str(got.path), month, present, green=kind == "green")
+        )
+        ctx.load(KINDS[kind], sql, partition_filter=f"file_month = DATE '{month.isoformat()}'")
+        ctx.detail.setdefault("loaded", []).append(f"{kind} {month:%Y-%m}")
+    return True

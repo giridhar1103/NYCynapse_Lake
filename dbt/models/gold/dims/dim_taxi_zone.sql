@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='overwrite') }}
 with shapes as (
     select location_id, ST_Centroid(geom) as c
     from {{ source('silver', 'geo_taxi_zone') }}

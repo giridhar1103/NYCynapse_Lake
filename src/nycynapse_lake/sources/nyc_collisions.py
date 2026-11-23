@@ -114,23 +114,25 @@ PERSON_COLUMNS = (
 
 def run(ctx: RunContext, *, force: bool = False) -> None:
     soda = Socrata(ctx.http, ctx.settings.socrata_app_token)
-    follow_changes(
-        ctx,
-        soda,
-        CRASHES,
-        table="collision_crash_records",
-        columns=CRASH_COLUMNS,
-        where=SINCE,
-        transform=crashes_sql,
-        key="crash_records_after",
-    )
-    follow_changes(
-        ctx,
-        soda,
-        PERSONS,
-        table="collision_person_records",
-        columns=PERSON_COLUMNS,
-        where=SINCE,
-        transform=persons_sql,
-        key="person_records_after",
-    )
+    with ctx.part("crashes"):
+        follow_changes(
+            ctx,
+            soda,
+            CRASHES,
+            table="collision_crash_records",
+            columns=CRASH_COLUMNS,
+            where=SINCE,
+            transform=crashes_sql,
+            key="crash_records_after",
+        )
+    with ctx.part("persons"):
+        follow_changes(
+            ctx,
+            soda,
+            PERSONS,
+            table="collision_person_records",
+            columns=PERSON_COLUMNS,
+            where=SINCE,
+            transform=persons_sql,
+            key="person_records_after",
+        )

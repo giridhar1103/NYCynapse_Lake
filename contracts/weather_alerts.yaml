@@ -20,6 +20,7 @@ tables:
     write: merge
     version_column: source_updated_at
     event_time: starts_at
+    max_reject_rate: 0.1
     columns:
       - {name: office, type: VARCHAR, nullable: false, description: "Issuing office. OKX is Upton, NY, which covers the city."}
       - {name: phenomena, type: VARCHAR, nullable: false, pattern: "[A-Z]{2}",

@@ -11,6 +11,9 @@ Environment=HOME=/root
 ExecStart=/root/NYCynapse_Lake/.venv/bin/nyc-lake poll %i
 Restart=always
 RestartSec=15
+# The poller reports in on every turn. One that hangs for ten minutes is restarted.
+WatchdogSec=10min
+NotifyAccess=main
 # The poller writes what it holds on SIGTERM before it exits.
 TimeoutStopSec=120
 # Memory climbs slowly and reached the cap every day or two. A planned restart saves what is held;

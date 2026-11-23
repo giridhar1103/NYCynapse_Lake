@@ -1,0 +1,10 @@
+[Unit]
+Description=NYCynapse lake health check, every 10 minutes
+
+[Timer]
+OnCalendar=*:5/10
+RandomizedDelaySec=20
+Persistent=true
+
+[Install]
+WantedBy=timers.target

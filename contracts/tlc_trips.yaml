@@ -8,7 +8,7 @@ description: >
   partition, so a republished file replaces the earlier copy exactly. Timestamps are published in
   New York time and stored as instants. Columns ending in _usd are dollars.
 cadence: monthly
-freshness_sla: 100 days
+freshness_sla: 3 days
 upstream:
   - https://d37ci6vzurychx.cloudfront.net/trip-data/
 
@@ -23,6 +23,7 @@ tables:
     partition_by: [file_month]
     min_rows: 1000000
     max_reject_rate: 0.001
+    data_sla: 85 days
     columns:
       - {name: file_month, type: DATE, nullable: false, description: "Month of the TLC file the row came from. Nearly always the pickup month."}
       - {name: company, type: VARCHAR, accepted: [Uber, Lyft, Via, Juno], description: "Company that took the trip, decoded from the TLC license number."}
@@ -60,6 +61,7 @@ tables:
     partition_by: [file_month]
     min_rows: 100000
     max_reject_rate: 0.001
+    data_sla: 85 days
     columns:
       - {name: file_month, type: DATE, nullable: false, description: "Month of the TLC file the row came from."}
       - {name: vendor_id, type: TINYINT, description: "Technology provider that recorded the trip: 1 Creative Mobile, 2 Curb, 6 Myle, 7 Helix."}
@@ -91,6 +93,7 @@ tables:
     partition_by: [file_month]
     min_rows: 1000
     max_reject_rate: 0.001
+    data_sla: 85 days
     columns:
       - {name: file_month, type: DATE, nullable: false, description: "Month of the TLC file the row came from."}
       - {name: vendor_id, type: TINYINT, description: "Technology provider: 1 Creative Mobile, 2 Curb, 6 Myle."}

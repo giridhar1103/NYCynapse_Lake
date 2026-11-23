@@ -1,7 +1,12 @@
-"""Local buffer for live feeds when the lake cannot take a write.
+"""Local write-ahead buffer for live feeds.
 
-Only processed, validated batches go here, never the payload as received. Files are written
-to a temporary name and renamed, so a crash cannot leave a half-written batch behind.
+Every batch is written here before it is loaded and removed once the load is committed, so a
+crash or an unreachable lake loses nothing: the batch is loaded on a later flush, and keyed
+writes make a repeat harmless. Only processed batches go here, never the payload as received.
+Files are written to a temporary name and renamed, so a crash cannot leave half a batch.
+
+A batch the lake refuses for good (it breaks its contract, or the file is damaged) is moved to
+dead/ with the reason, so it cannot hold up the batches behind it.
 """
 
 import json
@@ -44,14 +49,52 @@ class Spool:
     def pending(self) -> list[Path]:
         return sorted(self.dir.glob("*.parquet"))
 
-    def drain(self, load: Callable[[str, pa.Table, dict], None]) -> int:
-        """Replay spooled batches oldest first. Stops at the first failure so order is kept."""
+    def dead(self) -> list[Path]:
+        return sorted((self.dir / "dead").glob("*.parquet"))
+
+    def bury(self, path: Path, reason: str) -> None:
+        grave = self.dir / "dead"
+        grave.mkdir(exist_ok=True)
+        (grave / f"{path.stem}.txt").write_text(reason[:4000])
+        os.replace(path, grave / path.name)
+
+    def revive(self) -> int:
+        """Queue the dead batches again, after the cause has been fixed."""
+        n = 0
+        for path in self.dead():
+            os.replace(path, self.dir / path.name)
+            path.with_suffix(".txt").unlink(missing_ok=True)
+            n += 1
+        return n
+
+    def drain(
+        self,
+        load: Callable[[str, pa.Table, dict], None],
+        *,
+        permanent: tuple[type[Exception], ...] = (),
+        on_dead: Callable[[Path, Exception], None] = lambda path, exc: None,
+    ) -> int:
+        """Load spooled batches oldest first.
+
+        An error in `permanent` sets that batch aside and goes on. Any other error stops the
+        drain, so order is kept and the batch is tried again on the next flush.
+        """
         done = 0
         for path in self.pending():
-            batch = pq.read_table(path)
-            info = json.loads(batch.schema.metadata[b"nyc_lake"])
-            batch = batch.replace_schema_metadata(None)
-            load(info.pop("table"), batch, info)
+            try:
+                batch = pq.read_table(path)
+                info = json.loads(batch.schema.metadata[b"nyc_lake"])
+                table = info.pop("table")
+            except (OSError, ValueError, KeyError, TypeError, pa.ArrowInvalid) as exc:
+                self.bury(path, f"unreadable: {type(exc).__name__} {exc}")
+                on_dead(path, exc)
+                continue
+            try:
+                load(table, batch.replace_schema_metadata(None), info)
+            except permanent as exc:
+                self.bury(path, f"{type(exc).__name__}: {exc}")
+                on_dead(path, exc)
+                continue
             path.unlink()
             done += 1
         return done

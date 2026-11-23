@@ -1,10 +1,10 @@
 """Static subway schedule (GTFS). A new version is loaded whenever the MTA publishes one."""
 
-import zipfile
+import shutil
 
 from .. import geo
 from ..runs import RunContext
-from .files import fetch_if_changed
+from .files import fetch_if_changed, open_zip
 
 URL = "https://rrgtfsfeeds.s3.amazonaws.com/gtfs_subway.zip"
 
@@ -78,7 +78,7 @@ def run(ctx: RunContext, *, force: bool = False) -> None:
         version = got.sha256[:12]
         unpacked = got.path.with_suffix(".d")
         try:
-            with zipfile.ZipFile(got.path) as z:
+            with open_zip(got.path) as z:
                 z.extractall(unpacked)
             # Child tables first, the version row last: a version is listed only when complete.
             for table, sql in statements(str(unpacked), version).items():
@@ -95,7 +95,4 @@ def run(ctx: RunContext, *, force: bool = False) -> None:
             )
             ctx.detail["feed_version"] = version
         finally:
-            for f in unpacked.glob("*"):
-                f.unlink()
-            if unpacked.exists():
-                unpacked.rmdir()
+            shutil.rmtree(unpacked, ignore_errors=True)

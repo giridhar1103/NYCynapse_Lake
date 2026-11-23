@@ -3,6 +3,7 @@
 from datetime import date, timedelta
 
 from .. import geo
+from ..retry import Retryable
 from ..runs import RunContext
 from ..socrata import Dataset, Socrata
 from .socrata_feed import borough, text
@@ -102,9 +103,7 @@ def _load_month(ctx: RunContext, soda: Socrata, month: date) -> int:
             p.file.path.unlink(missing_ok=True)
 
 
-def run(ctx: RunContext, *, force: bool = False) -> None:
-    soda = Socrata(ctx.http, ctx.settings.socrata_app_token)
-
+def _stations(ctx: RunContext, soda: Socrata) -> None:
     pages = list(
         soda.pages(
             STATIONS,
@@ -117,11 +116,20 @@ def run(ctx: RunContext, *, force: bool = False) -> None:
             where="1 = 1",
         )
     )
+    if not pages:
+        raise Retryable("the station list came back empty")
     try:
         ctx.load("subway_station", stations_sql(str(pages[0].file.path)))
     finally:
         for p in pages:
             p.file.path.unlink(missing_ok=True)
+
+
+def run(ctx: RunContext, *, force: bool = False) -> None:
+    soda = Socrata(ctx.http, ctx.settings.socrata_app_token)
+
+    with ctx.part("stations"):
+        _stations(ctx, soda)
 
     current = date.today().replace(day=1)
     month = date.fromisoformat(ctx.checkpoint("backfill_next", START.isoformat()))
@@ -135,5 +143,6 @@ def run(ctx: RunContext, *, force: bool = False) -> None:
     previous = date(current.year - (current.month == 1), (current.month - 2) % 12 + 1, 1)
     for m in (previous, current):
         if m.isoformat()[:7] not in ctx.detail.get("months", []):
-            _load_month(ctx, soda, m)
-            ctx.detail.setdefault("months", []).append(m.isoformat()[:7])
+            with ctx.part(m.isoformat()[:7]):
+                _load_month(ctx, soda, m)
+                ctx.detail.setdefault("months", []).append(m.isoformat()[:7])

@@ -51,3 +51,4 @@ sources:
       - {name: table_freshness}
       - {name: feed_gaps}
       - {name: upstream_files}
+      - {name: incidents}

@@ -6,7 +6,7 @@ description: >
   the Department of City Planning, plus the TLC taxi zone shapes. Every location in the lake is
   tagged against these polygons when it is loaded. Geometries are WGS 84 (EPSG:4326).
 cadence: monthly
-freshness_sla: 60 days
+freshness_sla: 40 days
 upstream:
   - https://data.cityofnewyork.us/resource/gthc-hcne.geojson
   - https://data.cityofnewyork.us/resource/9nt8-h7nd.geojson

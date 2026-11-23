@@ -5,7 +5,7 @@ description: >
   Taxi zone lookup published by the NYC Taxi and Limousine Commission. Every TLC trip record
   refers to pickup and dropoff locations by these zone ids.
 cadence: monthly
-freshness_sla: 45 days
+freshness_sla: 40 days
 upstream:
   - https://d37ci6vzurychx.cloudfront.net/misc/taxi_zone_lookup.csv
 

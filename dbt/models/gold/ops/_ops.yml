@@ -9,6 +9,8 @@ models:
       - {name: domain, description: "Domain of the source."}
       - {name: cadence, description: "How often the source publishes."}
       - {name: freshness_sla, description: "How old the last successful load may be before the table counts as stale."}
+      - {name: data_sla, description: "How old the newest event may be before the source counts as late."}
+      - {name: is_source_late, description: "True when loads work but the source has stopped publishing."}
       - {name: coverage_start, description: "Earliest event time questions may rely on; stray earlier dates are ignored."}
       - {name: coverage_end, description: "Latest event time questions may rely on; taxi tables end with the last month loaded."}
       - {name: row_count, description: "Rows in the table."}
@@ -29,3 +31,17 @@ models:
       - {name: gap_end, description: "End of the gap."}
       - {name: gap_minutes, description: "Length in minutes."}
       - {name: reason, description: "What happened."}
+
+  - name: ops_incident
+    description: Problems found by the lake's health check, open ones and those resolved in the last 30 days.
+    meta: {domain: pipeline_ops, grain: one row per problem and time it opened}
+    columns:
+      - {name: key, description: "What the problem is about, stable while it lasts."}
+      - {name: source, description: "Ingestion source, when it concerns one."}
+      - {name: kind, description: "load_late, load_failing, source_late, volume_drop, spool_backlog, dead_batches, disk_low, job_late, job_failed, catalog_large or check_failed."}
+      - {name: severity, description: "warn or error."}
+      - {name: message, description: "The problem in words."}
+      - {name: opened_at, description: "When it was first seen."}
+      - {name: last_seen_at, description: "When it was last seen."}
+      - {name: resolved_at, description: "When it was gone."}
+      - {name: is_open, description: "True while it lasts."}

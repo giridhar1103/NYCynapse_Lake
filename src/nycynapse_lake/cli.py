@@ -5,9 +5,24 @@ import sys
 from . import contracts, lake
 from .breaker import CircuitOpen
 from .config import Settings
+from .contracts import ContractError
 from .control.db import Control
+from .quality import QualityFailure
 from .runs import SourceBusy, run_source
 from .sources import MODULES, runner
+
+
+def _job(name: str, settings: Settings, work) -> int:
+    """Run a housekeeping job and keep its outcome, so a job that stops running is noticed."""
+    ctl = Control(settings.pg_dsn)
+    try:
+        detail = work(ctl)
+    except Exception as exc:
+        ctl.record_job(name, False, {"error": f"{type(exc).__name__}: {exc}"[:1000]})
+        raise
+    ctl.record_job(name, True, detail)
+    print(name, detail)
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -23,6 +38,12 @@ def main(argv: list[str] | None = None) -> int:
     po.add_argument("source", choices=["subway_realtime", "citibike_live"])
     m = sub.add_parser("maintain", help="compact files, expire old snapshots, purge quarantine")
     m.add_argument("--keep-days", type=int, default=30)
+    sub.add_parser("health", help="look for problems and keep them in ops.incidents")
+    sub.add_parser("backup", help="back up the catalog, the control tables and live captures")
+    sub.add_parser("verify", help="check that every file the lake needs is on disk")
+    sub.add_parser("restore-check", help="restore the newest backup into a scratch database")
+    rd = sub.add_parser("replay-dead", help="put set-aside live batches back in the queue")
+    rd.add_argument("source", choices=["subway_realtime", "citibike_live"])
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -62,20 +83,50 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "maintain":
         from . import maintain
 
+        def job(ctl):
+            con = lake.connect(settings)
+            report = maintain.run(con, ctl, keep_days=args.keep_days)
+            return {k: v for k, v in report.items() if k != "merged"}
+
+        return _job("maintain", settings, job)
+
+    if args.cmd in ("backup", "verify", "restore-check"):
+        from . import backup
+
+        def job(ctl):
+            if args.cmd == "backup":
+                return backup.run(settings)
+            if args.cmd == "restore-check":
+                return backup.restore_check(settings)
+            return backup.verify(lake.connect(settings, read_only=True))
+
+        return _job(args.cmd, settings, job)
+
+    if args.cmd == "health":
+        from . import health
+
         ctl = Control(settings.pg_dsn)
-        con = lake.connect(settings)
-        report = maintain.run(con, ctl, keep_days=args.keep_days)
-        print({k: v for k, v in report.items() if k != "merged"})
+        for p in health.run(settings, ctl):
+            print(f"{p.severity:5} {p.key}: {p.message}")
+        return 0
+
+    if args.cmd == "replay-dead":
+        from .spool import Spool
+
+        print(Spool(settings.spool_path, args.source).revive(), "batches queued again")
         return 0
 
     if args.cmd == "run":
         contract = contracts.load(settings.contracts_path / f"{args.source}.yaml")
         try:
-            with run_source(contract, settings) as ctx:
+            with run_source(contract, settings, force=args.force) as ctx:
                 runner(args.source)(ctx, force=args.force)
         except (SourceBusy, CircuitOpen) as exc:
             print(exc, file=sys.stderr)
-            return 75  # EX_TEMPFAIL, so systemd and Prefect treat it as "try later"
+            return 75  # EX_TEMPFAIL, so systemd treats it as "try later"
+        except (QualityFailure, ContractError) as exc:
+            print(exc, file=sys.stderr)
+            return 65  # EX_DATAERR: the data is wrong, so trying again soon will not help
         return 0
     return 2
 

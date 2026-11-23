@@ -5,6 +5,7 @@ from datetime import UTC, date, datetime, timedelta
 import pyarrow as pa
 import pyarrow.compute as pc
 
+from ..retry import Retryable
 from ..runs import RunContext
 
 ARCHIVE = "https://archive-api.open-meteo.com/v1/archive"
@@ -84,6 +85,24 @@ def to_table(payload, *, fetched_at: datetime | None = None) -> pa.Table:
 
 
 def run(ctx: RunContext, *, force: bool = False) -> None:
+    # Two services: one being down must not stop the other.
+    with ctx.part("archive"):
+        _archive(ctx)
+    with ctx.part("forecast"):
+        fetched_at = datetime.now(UTC).replace(microsecond=0)
+        payload = ctx.http.get_json(FORECAST, params=_params(past_days=7, forecast_days=2))
+        ctx.load("weather_recent_hourly", _checked(payload, fetched_at=fetched_at))
+
+
+def _checked(payload, **kw) -> pa.Table:
+    """The table, or a retryable error when the answer does not have the expected shape."""
+    try:
+        return to_table(payload, **kw)
+    except (KeyError, TypeError, ValueError, pa.ArrowInvalid) as exc:
+        raise Retryable(f"unexpected Open-Meteo answer: {type(exc).__name__} {exc}") from exc
+
+
+def _archive(ctx: RunContext) -> None:
     through = date.fromisoformat(ctx.checkpoint("archive_through", "2023-12-31"))
     settled = date.today() - timedelta(days=ARCHIVE_LAG_DAYS)
     while through < settled:
@@ -92,13 +111,9 @@ def run(ctx: RunContext, *, force: bool = False) -> None:
         payload = ctx.http.get_json(
             ARCHIVE, params=_params(start_date=start.isoformat(), end_date=end.isoformat())
         )
-        ctx.load("weather_hourly", _drop_empty_hours(to_table(payload)))
+        ctx.load("weather_hourly", _drop_empty_hours(_checked(payload)))
         ctx.save("archive_through", end.isoformat())
         through = end
-
-    fetched_at = datetime.now(UTC).replace(microsecond=0)
-    payload = ctx.http.get_json(FORECAST, params=_params(past_days=7, forecast_days=2))
-    ctx.load("weather_recent_hourly", to_table(payload, fetched_at=fetched_at))
 
 
 def _drop_empty_hours(table: pa.Table) -> pa.Table:

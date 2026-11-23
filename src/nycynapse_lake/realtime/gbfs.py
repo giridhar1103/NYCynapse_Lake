@@ -43,8 +43,8 @@ def status_rows(payload: dict, last: dict[str, list], now: int) -> list[dict]:
             bool(s.get("is_renting")),
             bool(s.get("is_returning")),
         ]
-        sid = s["station_id"]
-        if last.get(sid) == values:
+        sid = s.get("station_id")
+        if not sid or last.get(sid) == values:
             continue
         last[sid] = values
         reported = s.get("last_reported") or 0
@@ -102,18 +102,28 @@ class GbfsPoller(Poller):
 
     def poll(self, now: int) -> None:
         payload = self.fetch("station_status", BASE + "station_status.json", now, json_body=True)
-        if payload is not None:
+        if self._alive("station_status", payload, now):
             self.status += status_rows(payload, self.last, now)
         if now >= self.next_stations:
             info = self.fetch(
                 "station_information", BASE + "station_information.json", now, json_body=True
             )
-            if info is not None:
+            if self._alive("station_information", info, now):
                 regions = self.fetch(
                     "system_regions", BASE + "system_regions.json", now, json_body=True
                 )
                 self.stations = station_rows(info, regions, self.first_seen, now)
                 self.next_stations = now + STATION_EVERY
+
+    def _alive(self, name: str, payload, now: int) -> bool:
+        if payload is None:
+            return False
+        data = payload.get("data") if isinstance(payload, dict) else None
+        if not isinstance(data, dict) or not data.get("stations"):
+            self._down(name, now, "has no stations")
+            return False
+        stamp = payload.get("last_updated")
+        return self.fresh(name, int(stamp) if stamp else None, now)
 
     def take(self) -> dict[str, pa.Table]:
         status, stations = self.status, self.stations

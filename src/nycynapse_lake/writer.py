@@ -21,6 +21,7 @@ ENVELOPE = (
     ("_contract_version", "INTEGER"),
 )
 CONFLICT_RETRIES = 5
+SHRINK_MIN_ROWS = 100  # below this, a big relative change means little
 
 
 @dataclass(frozen=True)
@@ -37,12 +38,7 @@ class WriteResult:
 
 
 def ensure_table(con: duckdb.DuckDBPyConnection, table: Table) -> None:
-    exists = con.execute(
-        "SELECT count(*) FROM duckdb_tables() WHERE database_name = ? AND schema_name = 'silver' "
-        "AND table_name = ?",
-        [LAKE, table.name],
-    ).fetchone()[0]
-    if not exists:
+    if not _exists(con, table):
         cols = [f'"{c.name}" {c.type}' for c in table.columns]
         cols += [f"{n} {t}" for n, t in ENVELOPE]
         con.execute(f"CREATE TABLE {table.qualified} ({', '.join(cols)})")
@@ -79,6 +75,29 @@ def _evolve(con: duckdb.DuckDBPyConnection, table: Table) -> None:
 def _canonical(con: duckdb.DuckDBPyConnection, type_: str) -> str:
     """The type name DuckDB reports for a declared type, so aliases compare equal."""
     return con.execute(f"SELECT typeof(CAST(NULL AS {type_}))").fetchone()[0]
+
+
+def shrink(
+    con: duckdb.DuckDBPyConnection, table: Table, clean: str, partition_filter: str | None
+) -> tuple[int, int] | None:
+    """Rows a replacing write would remove and add, or None when there is nothing to compare."""
+    if table.write not in ("replace_all", "replace_partition") or not _exists(con, table):
+        return None
+    scope = f" WHERE {partition_filter}" if table.write == "replace_partition" else ""
+    before = con.execute(f"SELECT count(*) FROM {table.qualified}{scope}").fetchone()[0]
+    if before < SHRINK_MIN_ROWS:
+        return None
+    return before, con.execute(f"SELECT count(*) FROM {clean}").fetchone()[0]
+
+
+def _exists(con: duckdb.DuckDBPyConnection, table: Table) -> bool:
+    return bool(
+        con.execute(
+            "SELECT count(*) FROM duckdb_tables() WHERE database_name = ? "
+            "AND schema_name = 'silver' AND table_name = ?",
+            [LAKE, table.name],
+        ).fetchone()[0]
+    )
 
 
 def write(

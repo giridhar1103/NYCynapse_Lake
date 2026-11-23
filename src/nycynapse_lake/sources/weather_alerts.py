@@ -5,6 +5,7 @@ from datetime import UTC, date, datetime
 
 import pyarrow as pa
 
+from ..retry import Retryable
 from ..runs import RunContext
 
 ACTIVE = "https://api.weather.gov/alerts/active"
@@ -51,8 +52,8 @@ def _iso(value: str | None) -> datetime | None:
 def live_rows(payload: dict) -> list[dict]:
     rows = []
     for feature in payload.get("features", []):
-        p = feature["properties"]
-        if p.get("status") != "Actual":
+        p = feature.get("properties") or {}
+        if p.get("status") != "Actual" or not p.get("sent"):
             continue
         zones = [z.rsplit("/", 1)[-1] for z in p.get("affectedZones", [])]
         sent = _iso(p.get("sent"))
@@ -142,6 +143,9 @@ def run(ctx: RunContext, *, force: bool = False) -> None:
         ctx.save("archive_loaded", today)
 
     payload = ctx.http.get_json(ACTIVE, params={"zone": ",".join(ZONES)}, headers=HEADERS)
+    if not isinstance(payload, dict) or not isinstance(payload.get("features"), list):
+        # No alerts is an empty list. A missing list is not "no alerts".
+        raise Retryable("unexpected Weather Service answer: no features list")
     rows = live_rows(payload)
     ctx.detail["active_messages"] = len(payload.get("features", []))
     if rows:

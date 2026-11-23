@@ -6,7 +6,7 @@ description: >
   Requests change after they are filed (status, closing date, resolution), so loads merge on
   the request id and keep the newest version.
 cadence: daily
-freshness_sla: 3 days
+freshness_sla: 2 days
 upstream:
   - https://data.cityofnewyork.us/resource/erm2-nwe9
 
@@ -20,6 +20,7 @@ tables:
     event_time: created_at
     partition_by: [year(created_at), month(created_at)]
     max_reject_rate: 0.001
+    data_sla: 4 days
     columns:
       - name: unique_key
         type: BIGINT

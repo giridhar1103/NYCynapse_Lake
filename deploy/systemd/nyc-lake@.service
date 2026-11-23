@@ -2,6 +2,8 @@
 Description=NYCynapse lake load: %i
 After=network-online.target postgresql.service
 Wants=network-online.target
+StartLimitIntervalSec=6h
+StartLimitBurst=4
 
 [Service]
 Type=oneshot
@@ -11,8 +13,13 @@ Environment=HOME=/root
 ExecStart=/root/NYCynapse_Lake/.venv/bin/nyc-lake run %i
 # 75 means the source was busy or its circuit breaker is open. Not a failure.
 SuccessExitStatus=75
+# A nightly load that fails tries again the same night, three times at most. 65 means the data
+# itself was refused, which trying again will not change.
+Restart=on-failure
+RestartSec=20min
+RestartPreventExitStatus=65
 MemoryMax=1536M
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=7
-TimeoutStartSec=12h
+TimeoutStartSec=6h

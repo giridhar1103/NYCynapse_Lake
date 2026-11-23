@@ -20,6 +20,7 @@ tables:
     event_time: hour_start
     partition_by: [year(hour_start)]
     min_rows: 1
+    data_sla: 9 days
     columns:
       - {name: boro_code, type: TINYINT, nullable: false, min: 1, max: 5, description: "Borough the reading point is in."}
       - {name: hour_start, type: TIMESTAMPTZ, nullable: false, description: "Start of the hour the values describe."}

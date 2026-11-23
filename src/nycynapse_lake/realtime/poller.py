@@ -61,14 +61,23 @@ class SubwayPoller(Poller):
             try:
                 message.ParseFromString(body)
             except Exception as exc:  # noqa: BLE001 - a truncated message is skipped
-                log.warning("feed %s did not parse: %s", name, exc)
+                self._down(name, now, f"did not parse: {exc}")
                 continue
-            self.tracker.observe(name, message, now)
+            if not self.fresh(name, message.header.timestamp, now):
+                continue
+            try:
+                self.tracker.observe(name, message, now)
+            except Exception:  # noqa: BLE001 - one odd message must not stop the other feeds
+                log.exception("feed %s could not be read", name)
         if now >= self.next_alerts:
             self.next_alerts = now + self.alerts_every
             payload = self.fetch("alerts", ALERTS, now, json_body=True)
-            if payload is not None:
-                self._alerts(payload, now)
+            if isinstance(payload, dict) and "entity" in payload:
+                stamp = (payload.get("header") or {}).get("timestamp")
+                if self.fresh("alerts", int(stamp) if stamp else None, now):
+                    self._alerts(payload, now)
+            elif payload is not None:
+                self._down("alerts", now, "has no entity list")
 
     def _alerts(self, payload: dict, now: int) -> None:
         stamp = datetime.fromtimestamp(now, UTC)

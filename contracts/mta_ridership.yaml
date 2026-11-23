@@ -7,7 +7,7 @@ description: >
   schedule's stop ids. Ridership counts entries through fare control. The MTA revises recent
   weeks, so the last two months are reloaded in full on every run.
 cadence: weekly
-freshness_sla: 21 days
+freshness_sla: 9 days
 upstream:
   - https://data.ny.gov/resource/wujg-7c2s
   - https://data.ny.gov/resource/5wq4-mkjj
@@ -22,6 +22,7 @@ tables:
     event_time: hour_start
     partition_by: [year(hour_start), month(hour_start)]
     max_reject_rate: 0.0001
+    data_sla: 21 days
     columns:
       - {name: hour_start, type: TIMESTAMPTZ, nullable: false, description: "Start of the hour, published in New York time."}
       - {name: transit_mode, type: VARCHAR, nullable: false, accepted: [subway, staten_island_railway, tram],

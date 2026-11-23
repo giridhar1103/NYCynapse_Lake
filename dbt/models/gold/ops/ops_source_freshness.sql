@@ -45,6 +45,9 @@ select
     r.last_status,
     r.last_error,
     now() - r.last_success_at > s.freshness_sla      as is_stale,
+    f.data_sla,
+    -- The load works but the source has not published for longer than it should.
+    coalesce(now() - f.coverage_end > f.data_sla, false) as is_source_late,
     round(epoch(now() - f.coverage_end) / 3600.0, 1) as hours_since_latest_event,
     now()                                           as checked_at
 from {{ source('ops', 'table_freshness') }} f
