@@ -258,7 +258,7 @@ def restore_check(settings: Settings) -> dict:
         restored = lake.connect(_with_dsn(settings, dsn), read_only=True)
         live = lake.connect(settings, read_only=True)
         try:
-            return _compare(restored, live, dump)
+            return _compare(restored, live, dump, _then(dsn, settings.pg_dsn))
         finally:
             restored.close()
             live.close()
@@ -272,14 +272,29 @@ def _with_dsn(settings: Settings, dsn: str) -> Settings:
     return replace(settings, pg_dsn=dsn, catalog_override=None)
 
 
-def _compare(restored, live, dump: Path) -> dict:
-    want = set(tables(live))
+def _then(scratch_dsn: str, live_dsn: str) -> set[tuple[str, str]]:
+    """The tables that existed when the dump was taken, as the live catalog remembers it."""
+    with psycopg.connect(scratch_dsn, connect_timeout=15) as c:
+        at = c.execute("SELECT max(snapshot_id) FROM ducklake.ducklake_snapshot").fetchone()[0]
+    with psycopg.connect(live_dsn, connect_timeout=15) as c:
+        rows = c.execute(
+            "SELECT s.schema_name, t.table_name FROM ducklake.ducklake_table t "
+            "JOIN ducklake.ducklake_schema s USING (schema_id) "
+            "WHERE t.begin_snapshot <= %s AND (t.end_snapshot IS NULL OR t.end_snapshot > %s) "
+            "AND s.schema_name IN ('silver', 'gold')",
+            (at, at),
+        ).fetchall()
+    return set(rows)
+
+
+def _compare(restored, live, dump: Path, then: set[tuple[str, str]]) -> dict:
+    want = then
     got = set(tables(restored))
     lost = sorted(".".join(t) for t in want - got)
     if lost:
         raise RuntimeError(f"{dump.name} restores without {lost[:5]}")
     total, short = 0, []
-    for schema, name in sorted(got & want):
+    for schema, name in sorted(got & want & set(tables(live))):
         q = f"SELECT count(*) FROM lake.{schema}.{name}"
         a, b = restored.execute(q).fetchone()[0], live.execute(q).fetchone()[0]
         total += a

@@ -19,7 +19,7 @@ quiet. This page lists what happens then, and how to recover.
 Every write is one transaction, and repeating a load changes nothing, so a crash at any point is
 recovered by running again. Checkpoints move only after the data is committed. A run left open by a
 killed process is closed as failed by the next one. Nothing is written below 5 GB of free disk. A
-failed nightly load tries again after 20 minutes, three times; a load whose data was refused does not.
+failed load tries again after 20 minutes, then less and less often; one whose data was refused does not.
 
 ## Live feeds
 

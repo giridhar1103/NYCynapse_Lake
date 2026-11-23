@@ -1,8 +1,8 @@
 [Unit]
 Description=NYCynapse gold models: %i
 After=postgresql.service
-StartLimitIntervalSec=4h
-StartLimitBurst=3
+# Starts by timer count as starts too, so a start limit would block jobs that run often.
+StartLimitIntervalSec=0
 
 [Service]
 Type=oneshot
@@ -19,3 +19,5 @@ Nice=10
 TimeoutStartSec=4h
 Restart=on-failure
 RestartSec=10min
+RestartSteps=4
+RestartMaxDelaySec=2h
