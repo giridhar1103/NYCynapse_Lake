@@ -29,6 +29,7 @@ JOB_LIMITS = {
     "maintain": timedelta(hours=30),
     "verify": timedelta(hours=30),
     "restore-check": timedelta(days=8),
+    "trip-tables": timedelta(days=45),  # when trips are published, monthly
 }
 
 OFFSITE_LIMITS = {"offsite": timedelta(hours=30), "offsite-check": timedelta(days=8)}

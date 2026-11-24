@@ -44,6 +44,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("restore-check", help="restore the newest backup into a scratch database")
     sub.add_parser("offsite", help="copy the backups off this machine, encrypted")
     sub.add_parser("offsite-check", help="restore the newest off-site backup for real")
+    tt = sub.add_parser("trip-tables", help="build the trip tables if trips were loaded")
+    tt.add_argument("--force", action="store_true", help="build them in any case")
     rd = sub.add_parser("replay-dead", help="put set-aside live batches back in the queue")
     rd.add_argument("source", choices=["subway_realtime", "citibike_live"])
     args = parser.parse_args(argv)
@@ -93,6 +95,15 @@ def main(argv: list[str] | None = None) -> int:
             return {k: v for k, v in report.items() if k != "merged"}
 
         return _job("maintain", settings, job)
+
+    if args.cmd == "trip-tables":
+        from . import gold
+
+        reason = "asked for" if args.force else gold.due(Control(settings.pg_dsn))
+        if reason is None:
+            print("no trips loaded since the trip tables were built")
+            return 0
+        return _job(gold.JOB, settings, lambda ctl: gold.build(settings, ctl, reason))
 
     if args.cmd in ("offsite", "offsite-check"):
         from . import offsite

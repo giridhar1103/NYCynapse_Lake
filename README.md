@@ -117,6 +117,7 @@ The ops tables refresh every 15 minutes, subway arrivals and weather hourly, and
 
 ```bash
 cd dbt && DBT_PROFILES_DIR=. ../.venv-dbt/bin/dbt build --selector daily
+../.venv/bin/nyc-lake trip-tables   # the two tables built from every taxi and app trip
 ```
 
 dbt runs in its own virtualenv (`.venv-dbt`) because it pins an older protobuf than the GTFS-realtime bindings need.

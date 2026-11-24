@@ -9,9 +9,13 @@ selectors:
         - {method: fqn, value: fct_subway_arrival}
         - {method: fqn, value: fct_weather_hourly}
   - name: daily
-    description: Everything, with tests, after the nightly loads.
+    description: Everything except the trip tables, with tests, after the nightly loads.
     definition:
       union:
         - {method: fqn, value: "*"}
         - exclude:
             - {method: path, value: models/gold/ops}
+            - {method: path, value: models/gold/aggregates}
+  - name: trips
+    description: The tables built from every taxi and app trip, when trips were loaded.
+    definition: {method: path, value: models/gold/aggregates}

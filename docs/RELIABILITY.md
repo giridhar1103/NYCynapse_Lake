@@ -22,6 +22,10 @@ recovered by running again. Checkpoints move only after the data is committed. A
 killed process is closed as failed by the next one. Nothing is written below 5 GB of free disk. A
 failed load tries again after 20 minutes, then less and less often; one whose data was refused does not.
 
+The two tables built from every taxi and app trip take half an hour, and trips are published once a
+month. `nyc-lake trip-tables` runs after the daily build and builds them only when trips were loaded
+since the last time, their SQL changed, or 40 days passed. `--force` builds them anyway.
+
 ## Live feeds
 
 Nobody publishes the history of a live feed, so a missed minute is gone.

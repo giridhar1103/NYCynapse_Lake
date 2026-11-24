@@ -13,7 +13,7 @@ import httpx
 import pyarrow as pa
 import pytest
 
-from nycynapse_lake import backup, health, maintain, offsite
+from nycynapse_lake import backup, gold, health, maintain, offsite
 from nycynapse_lake.config import Settings
 from nycynapse_lake.contracts import ContractError, parse
 from nycynapse_lake.http import Http
@@ -443,3 +443,28 @@ def test_off_site_copies_stay_watched_when_the_login_goes_missing(
     ctl.record_job("offsite", True, {})
     ctl.conn.execute("UPDATE ops.jobs SET finished_at = now() - interval '2 days'")
     assert "job:offsite" in {p.key for p in health.jobs(ctl)}
+
+
+# trip tables
+
+
+def test_trip_tables_are_built_when_trips_arrive_or_their_sql_changes(ctl, monkeypatch):
+    assert gold.due(ctl) == "never built"
+    began = datetime.now(UTC)
+    ctl.record_job(
+        gold.JOB, True, {"began": began.isoformat(), "code": gold.code(gold.ROOT / "dbt")}
+    )
+    assert gold.due(ctl) is None
+    run = uuid.uuid4()
+    ctl.conn.execute(
+        "INSERT INTO ops.runs (run_id, source, status, rows_written, finished_at) "
+        "VALUES (%s, 'tlc_trips', 'succeeded', 0, now())",
+        (run,),
+    )
+    assert gold.due(ctl) is None  # a run that brought nothing
+    ctl.conn.execute("UPDATE ops.runs SET rows_written = 5 WHERE run_id = %s", (run,))
+    assert gold.due(ctl) == "trips were loaded"
+    ctl.conn.execute("UPDATE ops.runs SET finished_at = %s", (began - timedelta(hours=1),))
+    assert gold.due(ctl) is None
+    monkeypatch.setattr(gold, "code", lambda dbt: "other")
+    assert gold.due(ctl) == "the SQL changed"

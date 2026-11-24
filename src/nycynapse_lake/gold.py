@@ -1,0 +1,70 @@
+"""The gold tables built from taxi and app trips, which are published once a month.
+
+Building them reads hundreds of millions of trips and takes half an hour, so they are left out of
+the daily build and built when trips were loaded since the last time, or their SQL changed.
+"""
+
+import hashlib
+import os
+import subprocess
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+from .config import Settings
+from .control.db import Control
+
+JOB = "trip-tables"
+SOURCE = "tlc_trips"
+SELECTOR = "trips"
+# What the two tables are built from, so a change to any of them counts.
+MODELS = (
+    "selectors.yml",
+    "macros/time.sql",
+    "models/gold/aggregates/agg_trip_times_zone_pair.sql",
+    "models/gold/aggregates/agg_trips_zone_hourly.sql",
+    "models/gold/facts/fct_rideshare_trip.sql",
+    "models/gold/facts/fct_taxi_trip.sql",
+)
+MAX_AGE = timedelta(days=40)
+ROOT = Path(__file__).parents[2]
+
+
+def code(dbt: Path) -> str:
+    digest = hashlib.sha256()
+    for name in MODELS:
+        digest.update((dbt / name).read_bytes())
+    return digest.hexdigest()[:16]
+
+
+def due(ctl: Control, dbt: Path = ROOT / "dbt") -> str | None:
+    """Why the tables need building, or None."""
+    last = ctl.conn.execute(
+        "SELECT finished_at, detail FROM ops.jobs WHERE job = %s AND ok "
+        "ORDER BY finished_at DESC LIMIT 1",
+        (JOB,),
+    ).fetchone()
+    if last is None:
+        return "never built"
+    if last["detail"].get("code") != code(dbt):
+        return "the SQL changed"
+    # From when the build began: trips loaded while it ran may not be in it.
+    since = datetime.fromisoformat(last["detail"]["began"])
+    if ctl.conn.execute(
+        "SELECT 1 FROM ops.runs WHERE source = %s AND rows_written > 0 "
+        "AND (finished_at IS NULL OR finished_at > %s) LIMIT 1",
+        (SOURCE, since),
+    ).fetchone():
+        return "trips were loaded"
+    if datetime.now(UTC) - last["finished_at"] > MAX_AGE:
+        return "not built for a while"
+    return None
+
+
+def build(settings: Settings, ctl: Control, reason: str, dbt: Path = ROOT / "dbt") -> dict:
+    began = datetime.now(UTC)
+    command = [str(ROOT / ".venv-dbt/bin/dbt"), "build", "--selector", SELECTOR]
+    env = {**os.environ, "DBT_PROFILES_DIR": str(dbt)}
+    done = subprocess.run(command, cwd=dbt, env=env, check=False)  # its log goes to the journal
+    if done.returncode:
+        raise RuntimeError(f"dbt build --selector {SELECTOR} ended with {done.returncode}")
+    return {"reason": reason, "began": began.isoformat(), "code": code(dbt)}
