@@ -22,11 +22,12 @@ log = logging.getLogger(__name__)
 FILE_GRACE_DAYS = 8
 DQ_DAYS = 60
 RUN_DAYS = 180
-# What one rewrite may read back and write again, so it fits in this job's memory. Files are taken
-# deadest first: those hold the most waste and the fewest rows to keep.
-REWRITE_MAX_LIVE_BYTES = 400 * 1024**2
+# Files are taken deadest first, down to this share of deleted rows, as long as what is still live
+# in them is below the limit next to it. The limits keep a rewrite within this job's memory. The
+# replaced files stay for weeks, so a rewrite of files that are hardly dead costs more disk than it
+# frees and is only for small tables.
+REWRITE_STEPS = ((0.95, 400 * 1024**2), (0.5, 400 * 1024**2), (0.05, 20 * 1024**2))
 REWRITE_MIN_DELETES = 20
-REWRITE_THRESHOLDS = (0.95, 0.5, 0.05)
 
 
 def expirable(con: duckdb.DuckDBPyConnection, ctl: Control, keep_days: int) -> list[int]:
@@ -76,9 +77,9 @@ def rewrite(con: duckdb.DuckDBPyConnection) -> tuple[dict, list[str]]:
         [LAKE],
     ).fetchall()
     for schema, name in tables:
-        for threshold in REWRITE_THRESHOLDS:
+        for threshold, limit in REWRITE_STEPS:
             files, live = _dead_files(con, schema, name, threshold)
-            if files < REWRITE_MIN_DELETES or live > REWRITE_MAX_LIVE_BYTES:
+            if files < REWRITE_MIN_DELETES or live > limit:
                 continue
             try:
                 _rewrite_table(con, schema, name, threshold)

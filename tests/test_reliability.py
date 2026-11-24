@@ -309,7 +309,7 @@ def test_files_of_deleted_rows_are_rewritten(con):
 
 def test_a_rewrite_too_big_for_memory_is_left_alone(con, monkeypatch):
     mostly_dead(con, 25)
-    monkeypatch.setattr(maintain, "REWRITE_MAX_LIVE_BYTES", 1)
+    monkeypatch.setattr(maintain, "REWRITE_STEPS", ((0.95, 1), (0.05, 1)))
     assert maintain.rewrite(con) == ({}, [])
 
 
