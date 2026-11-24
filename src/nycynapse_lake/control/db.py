@@ -88,6 +88,13 @@ class Control:
                 contract.description,
             ),
         )
+        # Also when no rows come: a source that stopped is the one its limit is for.
+        for t in contract.tables:
+            self.conn.execute(
+                "UPDATE ops.table_freshness SET data_sla = %s::interval WHERE table_name = %s "
+                "AND data_sla IS DISTINCT FROM %s::interval",
+                (t.data_sla, t.qualified, t.data_sla),
+            )
 
     # advisory locks keep two copies of the same source from running at once
 

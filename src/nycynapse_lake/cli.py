@@ -62,6 +62,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "migrate":
         ctl = Control(settings.pg_dsn)
         print("applied:", ctl.migrate() or "nothing new")
+        for c in contracts.load_all(settings.contracts_path).values():
+            ctl.register_source(c)
         ctl.close()
         con = lake.connect(settings)
         lake.ensure_schemas(con)

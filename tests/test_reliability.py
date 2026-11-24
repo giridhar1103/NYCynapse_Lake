@@ -194,6 +194,18 @@ def test_a_future_date_does_not_hide_that_a_feed_stopped(settings, ctl, con):
     assert [p.kind for p in problems] == ["source_late"]
 
 
+def test_a_limit_applies_to_a_source_that_brings_nothing(settings, ctl, con):
+    with run_source(contract(), settings, ctl=ctl, con=con) as ctx:
+        ctx.load("obs", rows(10, datetime.now(UTC) - timedelta(days=3)))
+    assert health.data(ctl) == []
+    with run_source(contract(table(data_sla="2 days")), settings, ctl=ctl, con=con):
+        pass
+    assert [p.kind for p in health.data(ctl)] == ["source_late"]
+    with run_source(contract(), settings, ctl=ctl, con=con):
+        pass
+    assert health.data(ctl) == []
+
+
 def test_a_late_limit_needs_an_event_time():
     with pytest.raises(ContractError, match="event_time"):
         contract({**table(), "event_time": None, "data_sla": "1 day"})
