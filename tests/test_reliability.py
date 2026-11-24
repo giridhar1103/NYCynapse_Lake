@@ -228,8 +228,10 @@ def test_late_failing_and_thin_loads_are_found(settings, ctl):
             (hours * 60 + 1, hours * 60, rid),
         )
 
-    for h in range(10, 1, -1):
-        done("succeeded", 1000, h * 0 + h)
+    for day in range(9, 0, -1):
+        done("succeeded", 1000, day * 24)
+        done("succeeded", 0, day * 24 - 6)  # the second look of the day finds nothing new
+    assert health.volume(ctl) == []
     done("succeeded", 20, 0)
     assert health.loads(ctl) == []
     assert [p.kind for p in health.volume(ctl)] == ["volume_drop"]

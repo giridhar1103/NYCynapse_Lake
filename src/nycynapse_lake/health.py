@@ -116,18 +116,22 @@ def data(ctl: Control) -> list[Problem]:
 
 
 def volume(ctl: Control) -> list[Problem]:
-    """A run that succeeded with far fewer rows than usual."""
+    """Far fewer rows than usual. Counted per day, the newest one being the 18 hours up to the last
+    run: a source read twice a day brings nothing the second time, and that is fine."""
     rows = ctl.conn.execute(
         """
         WITH ok AS (
-            SELECT source, rows_in, started_at,
-                   row_number() OVER (PARTITION BY source ORDER BY started_at DESC) AS n
+            SELECT source, rows_in, floor(extract(epoch FROM
+                   max(started_at) OVER (PARTITION BY source) - started_at + interval '6 hours')
+                   / 86400) AS day
             FROM ops.runs WHERE status = 'succeeded' AND started_at > now() - interval '30 days'
+        ), days AS (
+            SELECT source, day, sum(rows_in) AS rows_in FROM ok GROUP BY 1, 2
         )
-        SELECT a.source, a.rows_in, b.usual FROM ok a JOIN (
+        SELECT a.source, a.rows_in, b.usual FROM days a JOIN (
             SELECT source, percentile_cont(0.5) WITHIN GROUP (ORDER BY rows_in) AS usual
-            FROM ok WHERE n BETWEEN 2 AND 15 GROUP BY 1 HAVING count(*) >= 7
-        ) b USING (source) WHERE a.n = 1 AND b.usual >= 500
+            FROM days WHERE day BETWEEN 1 AND 14 GROUP BY 1 HAVING count(*) >= 7
+        ) b USING (source) WHERE a.day = 0 AND b.usual >= 500
         """
     ).fetchall()
     return [

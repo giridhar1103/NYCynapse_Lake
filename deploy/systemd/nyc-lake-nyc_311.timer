@@ -3,6 +3,8 @@ Description=Schedule for NYCynapse lake load: nyc_311
 
 [Timer]
 OnCalendar=*-*-* 03:15:00 UTC
+# The city's query copy can be hours behind what it published. Before the daily tables at 10:00.
+OnCalendar=*-*-* 09:15:00 UTC
 RandomizedDelaySec=10m
 Persistent=true
 Unit=nyc-lake@nyc_311.service
