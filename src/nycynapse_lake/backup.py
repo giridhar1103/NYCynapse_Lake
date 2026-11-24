@@ -229,12 +229,13 @@ def verify(con, *, deep: int = 200) -> dict:
     return report
 
 
-def restore_check(settings: Settings) -> dict:
-    """Restore the newest dump into a scratch database and read the lake through it."""
+def restore_check(settings: Settings, dump: Path | None = None) -> dict:
+    """Restore a dump, the newest one here unless told, into a scratch database and read the lake
+    through it."""
     dumps = sorted(settings.backup_path.glob("catalog-*.dump"))
-    if not dumps:
+    if not dumps and dump is None:
         raise RuntimeError("there is no backup to check")
-    dump = dumps[-1]
+    dump = dump or dumps[-1]
     owner = conninfo_to_dict(settings.pg_dsn).get("user")
     admin = ["runuser", "-u", "postgres", "--"]
     _run([*admin, "dropdb", "--if-exists", SCRATCH], cwd="/")

@@ -55,8 +55,13 @@ that publishes two months late is fine as long as the load ran last night.
 | Every file of the current version present with the right size, 200 opened | daily | |
 
 Data files are deleted eight days after nothing refers to them, so a catalog from the last week still
-finds all of its files. Everything else in the lake can be reloaded from its source. All copies are on
-the same machine: losing the disk loses the live captures.
+finds all of its files. Everything else in the lake can be reloaded from its source.
+
+Once storage is signed in, `nyc-lake offsite` copies all of these, with the app database's dumps, to
+another provider every night. They are encrypted here first. It copies and never mirrors, so losing
+files here does not remove them there. `nyc-lake offsite-check` brings the newest catalog back every
+week and restores it. The encryption key has to be kept somewhere else as well: without it the copies
+cannot be opened.
 
 ### Recovering
 

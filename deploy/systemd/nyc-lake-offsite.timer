@@ -1,0 +1,10 @@
+[Unit]
+Description=NYCynapse lake off-site copy, nightly, after both backups
+
+[Timer]
+OnCalendar=*-*-* 04:10:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

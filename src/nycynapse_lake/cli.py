@@ -42,6 +42,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("backup", help="back up the catalog, the control tables and live captures")
     sub.add_parser("verify", help="check that every file the lake needs is on disk")
     sub.add_parser("restore-check", help="restore the newest backup into a scratch database")
+    sub.add_parser("offsite", help="copy the backups off this machine, encrypted")
+    sub.add_parser("offsite-check", help="restore the newest off-site backup for real")
     rd = sub.add_parser("replay-dead", help="put set-aside live batches back in the queue")
     rd.add_argument("source", choices=["subway_realtime", "citibike_live"])
     args = parser.parse_args(argv)
@@ -89,6 +91,15 @@ def main(argv: list[str] | None = None) -> int:
             return {k: v for k, v in report.items() if k != "merged"}
 
         return _job("maintain", settings, job)
+
+    if args.cmd in ("offsite", "offsite-check"):
+        from . import offsite
+
+        if not offsite.ready():
+            print("off-site storage is not signed in yet")
+            return 75
+        work = offsite.run if args.cmd == "offsite" else offsite.check
+        return _job(args.cmd, settings, lambda ctl: work(settings))
 
     if args.cmd in ("backup", "verify", "restore-check"):
         from . import backup

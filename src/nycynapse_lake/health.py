@@ -11,6 +11,7 @@ import shutil
 from dataclasses import dataclass
 from datetime import timedelta
 
+from . import offsite
 from .config import Settings
 from .control.db import Control
 from .spool import Spool
@@ -29,6 +30,8 @@ JOB_LIMITS = {
     "verify": timedelta(hours=30),
     "restore-check": timedelta(days=8),
 }
+
+OFFSITE_LIMITS = {"offsite": timedelta(hours=30), "offsite-check": timedelta(days=8)}
 
 
 @dataclass(frozen=True)
@@ -192,7 +195,8 @@ def jobs(ctl: Control) -> list[Problem]:
         )
     }
     out = []
-    for job, limit in JOB_LIMITS.items():
+    limits = {**JOB_LIMITS, **(OFFSITE_LIMITS if offsite.ready() else {})}
+    for job, limit in limits.items():
         r = last.get(job)
         if r is None or r["age"] > limit:
             when = "has never run" if r is None else f"last ran {_ago(r['age'])} ago"

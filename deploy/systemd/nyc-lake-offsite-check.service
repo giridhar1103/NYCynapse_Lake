@@ -1,0 +1,20 @@
+[Unit]
+Description=NYCynapse lake off-site restore test
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/NYCynapse_Lake
+EnvironmentFile=/root/.secrets/nycynapse.env
+Environment=HOME=/root
+ExecStart=/root/NYCynapse_Lake/.venv/bin/nyc-lake offsite-check
+# 75 means nobody has signed in to the storage yet.
+SuccessExitStatus=75
+MemoryMax=1536M
+Nice=15
+TimeoutStartSec=3h
+Restart=on-failure
+RestartSec=30min
+RestartSteps=3
+RestartMaxDelaySec=3h

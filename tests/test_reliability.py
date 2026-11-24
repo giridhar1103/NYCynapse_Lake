@@ -3,6 +3,8 @@
 import dataclasses
 import json
 import os
+import shutil
+import subprocess
 import uuid
 import zipfile
 from datetime import UTC, datetime, timedelta
@@ -11,7 +13,7 @@ import httpx
 import pyarrow as pa
 import pytest
 
-from nycynapse_lake import backup, health, maintain
+from nycynapse_lake import backup, health, maintain, offsite
 from nycynapse_lake.config import Settings
 from nycynapse_lake.contracts import ContractError, parse
 from nycynapse_lake.http import Http
@@ -297,3 +299,79 @@ def test_live_exports_are_weekly(settings, con, tmp_path):
 def test_settings_never_print_the_password():
     s = Settings(pg_dsn="password=hunter2", data_path=None, tmp_path=None, spool_path=None)
     assert "hunter2" not in repr(s) and "hunter2" not in json.dumps(str(s))
+
+
+# off-site
+
+
+@pytest.fixture
+def storage(settings, tmp_path, monkeypatch):
+    """Encrypted storage on a local folder, the same shape as the real one."""
+    if not shutil.which("rclone"):
+        pytest.skip("rclone is not installed")
+    obscured = subprocess.run(
+        ["rclone", "obscure", "not-the-real-key"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    conf = tmp_path / "rclone.conf"
+    conf.write_text(
+        "[plain]\ntype = local\n\n[offsite]\ntype = crypt\n"
+        f"remote = plain:{tmp_path / 'cloud'}\nfilename_encryption = off\n"
+        f"directory_name_encryption = false\npassword = {obscured}\n"
+    )
+    monkeypatch.setattr(offsite, "CONFIG", conf)
+    monkeypatch.setattr(offsite, "APP_BACKUPS", tmp_path / "app")
+    (tmp_path / "app").mkdir()
+    (tmp_path / "app" / "nycynapse-1.dump").write_bytes(b"app secret")
+    s = dataclasses.replace(settings, backup_path=tmp_path / "backups")
+    (s.backup_path / "exports" / "20261101").mkdir(parents=True)
+    (s.backup_path / "exports" / "20261101" / "a.parquet").write_bytes(b"x" * 100)
+    (s.backup_path / "exports" / "20261108.part").mkdir()
+    (s.backup_path / "exports" / "20261108.part" / "half.parquet").write_bytes(b"half")
+    (s.backup_path / "catalog-20261101-0000.dump").write_bytes(b"catalog secret")
+    (s.backup_path / "state-20261101-0000.tar.gz").write_bytes(b"state")
+    return s, tmp_path / "cloud"
+
+
+def test_off_site_copies_are_encrypted_and_outlive_the_ones_here(storage):
+    s, cloud = storage
+    offsite.run(s)
+    stored = [p for p in cloud.rglob("*") if p.is_file()]
+    assert len(stored) == 4  # the half-written export stays here
+    assert not any(b"secret" in p.read_bytes() for p in stored)
+    (s.backup_path / "catalog-20261101-0000.dump").unlink()
+    (s.backup_path / "catalog-20261102-0000.dump").write_bytes(b"newer")
+    report = offsite.run(s)
+    assert report["newest"] == "catalog-20261102-0000.dump"
+    assert [f["Path"] for f in offsite._there("catalog")] == [
+        "catalog-20261101-0000.dump",
+        "catalog-20261102-0000.dump",
+    ]
+
+
+def test_off_site_keeps_only_the_newest(storage, monkeypatch):
+    s, _ = storage
+    monkeypatch.setitem(offsite.KEEP, "catalog", 2)
+    for d in range(2, 6):
+        (s.backup_path / f"catalog-2026110{d}-0000.dump").write_bytes(b"c")
+    assert offsite.run(s)["removed"] == 3
+    assert len(offsite._there("catalog")) == 2
+
+
+def test_off_site_brings_back_what_was_sent(storage, monkeypatch):
+    s, _ = storage
+    offsite.run(s)
+    seen = []
+    monkeypatch.setattr(
+        backup, "restore_check", lambda settings, dump: seen.append(dump.read_bytes()) or {}
+    )
+    offsite.check(s)
+    assert seen == [b"catalog secret"]
+    (s.backup_path / "catalog-20261101-0000.dump").write_bytes(b"changed here")
+    with pytest.raises(RuntimeError, match="different"):
+        offsite.check(s)
+
+
+def test_storage_nobody_signed_in_to_is_not_a_problem(settings, ctl, tmp_path, monkeypatch):
+    monkeypatch.setattr(offsite, "CONFIG", tmp_path / "missing.conf")
+    assert not offsite.ready()
+    assert "job:offsite" not in {p.key for p in health.jobs(ctl)}
