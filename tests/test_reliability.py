@@ -287,6 +287,51 @@ def test_replaced_files_outlive_a_week_of_backups(settings, ctl, con):
     assert len(list(settings.data_path.rglob("*.parquet"))) >= before - 0
 
 
+def mostly_dead(con, files, rows=200):
+    """A table of small files where most rows of each were deleted again."""
+    con.execute("CREATE TABLE lake.gold.churn (f INTEGER, a INTEGER)")
+    con.execute("CALL lake.set_option('data_inlining_row_limit', 0)")
+    for f in range(files):
+        con.execute(f"INSERT INTO lake.gold.churn SELECT {f}, range FROM range({rows})")
+        con.execute(f"DELETE FROM lake.gold.churn WHERE f = {f} AND a >= 4")
+    return con.execute("SELECT count(*), sum(f), sum(a) FROM lake.gold.churn").fetchone()
+
+
+def test_files_of_deleted_rows_are_rewritten(con):
+    before = mostly_dead(con, 25)
+    assert maintain._dead_files(con, "gold", "churn", 0.95)[0] == 25
+    done, errors = maintain.rewrite(con)
+    assert done == {"churn": 25} and not errors
+    assert maintain._dead_files(con, "gold", "churn", 0.05) == (0, 0)
+    assert con.execute("SELECT count(*), sum(f), sum(a) FROM lake.gold.churn").fetchone() == before
+    assert maintain.rewrite(con) == ({}, [])
+
+
+def test_a_rewrite_too_big_for_memory_is_left_alone(con, monkeypatch):
+    mostly_dead(con, 25)
+    monkeypatch.setattr(maintain, "REWRITE_MAX_LIVE_BYTES", 1)
+    assert maintain.rewrite(con) == ({}, [])
+
+
+def test_a_rewrite_that_loses_rows_is_not_kept(con):
+    before = mostly_dead(con, 25)
+
+    class Lossy:
+        """Deletes a row right after every rewrite, inside the same transaction."""
+
+        def execute(self, sql, *args):
+            out = con.execute(sql, *args)
+            if "ducklake_rewrite_data_files" in sql:
+                out.fetchall()
+                return con.execute("DELETE FROM lake.gold.churn WHERE f = 3")
+            return out
+
+    done, errors = maintain.rewrite(Lossy())
+    assert not done and "not kept" in errors[0]
+    assert con.execute("SELECT count(*), sum(f), sum(a) FROM lake.gold.churn").fetchone() == before
+    assert maintain._dead_files(con, "gold", "churn", 0.95)[0] == 25
+
+
 def test_live_exports_are_weekly(settings, con, tmp_path):
     s = dataclasses.replace(settings, backup_path=tmp_path / "b")
     con.execute("CREATE TABLE lake.silver.subway_trips (a INTEGER)")

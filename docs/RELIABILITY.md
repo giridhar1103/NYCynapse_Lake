@@ -72,3 +72,9 @@ cannot be opened.
   `NYC_LAKE_PG_DSN` at it, run `nyc-lake verify`, start everything. Batch sources catch up from their
   checkpoints.
 * **A live table is damaged.** The weekly copy is in `exports/`; insert what is missing by key.
+
+## Dead rows
+
+Updating a row leaves the old copy in its file until that file is rewritten. `nyc-lake maintain` rewrites
+the files with the most deleted rows first, and only as much as fits in its memory. Each rewrite is one
+transaction that is kept only if the table still has the same number of rows.

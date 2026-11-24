@@ -8,6 +8,7 @@ Files are deleted a week after nothing refers to them any more, never at once: a
 from a backup of the last week must still find every file it lists.
 """
 
+import contextlib
 import logging
 from datetime import UTC, datetime, timedelta
 
@@ -21,9 +22,11 @@ log = logging.getLogger(__name__)
 FILE_GRACE_DAYS = 8
 DQ_DAYS = 60
 RUN_DAYS = 180
-# Rewriting reads a whole table, so only tables that fit comfortably in this job's memory.
-REWRITE_MAX_BYTES = 400 * 1024**2
+# What one rewrite may read back and write again, so it fits in this job's memory. Files are taken
+# deadest first: those hold the most waste and the fewest rows to keep.
+REWRITE_MAX_LIVE_BYTES = 400 * 1024**2
 REWRITE_MIN_DELETES = 20
+REWRITE_THRESHOLDS = (0.95, 0.5, 0.05)
 
 
 def expirable(con: duckdb.DuckDBPyConnection, ctl: Control, keep_days: int) -> list[int]:
@@ -63,27 +66,71 @@ def run(
 
 
 def rewrite(con: duckdb.DuckDBPyConnection) -> tuple[dict, list[str]]:
-    """Rewrite tables whose files are mostly deleted rows. Updates leave a file and a delete file
-    each time, and merging alone skips those: one alerts table had 6,331 files for 0.6 MB."""
+    """Rewrite files that are mostly deleted rows. Updates leave a file and a delete file each time,
+    and merging alone skips those: one alerts table had 6,331 files for 0.6 MB, and the 311 table
+    kept 17 million dead rows next to 11 million live ones."""
     done, errors = {}, []
     tables = con.execute(
-        "SELECT table_name FROM duckdb_tables() WHERE database_name = ? "
-        "AND schema_name = 'silver' ORDER BY 1",
+        "SELECT schema_name, table_name FROM duckdb_tables() WHERE database_name = ? "
+        "AND schema_name IN ('silver', 'gold') ORDER BY 1, 2",
         [LAKE],
     ).fetchall()
-    for (name,) in tables:
-        files, size, deletes = con.execute(
-            "SELECT count(*), COALESCE(sum(data_file_size_bytes), 0), count(delete_file) "
-            f"FROM ducklake_list_files('{LAKE}', '{name}', schema => 'silver')"
-        ).fetchone()
-        if deletes < REWRITE_MIN_DELETES or size > REWRITE_MAX_BYTES:
-            continue
-        try:
-            con.execute(
-                f"CALL ducklake_rewrite_data_files('{LAKE}', '{name}', schema => 'silver', "
-                "delete_threshold => 0.05)"
-            ).fetchall()
-            done[name] = files
-        except duckdb.Error as exc:  # a live write got there first; tomorrow is soon enough
-            errors.append(f"{name}: {str(exc)[:160]}")
+    for schema, name in tables:
+        for threshold in REWRITE_THRESHOLDS:
+            files, live = _dead_files(con, schema, name, threshold)
+            if files < REWRITE_MIN_DELETES or live > REWRITE_MAX_LIVE_BYTES:
+                continue
+            try:
+                _rewrite_table(con, schema, name, threshold)
+                done[name] = done.get(name, 0) + files
+            except duckdb.Error as exc:  # a live write got there first; tomorrow is soon enough
+                errors.append(f"{schema}.{name}: {str(exc)[:160]}")
+                break
     return done, errors
+
+
+def _dead_files(
+    con: duckdb.DuckDBPyConnection, schema: str, name: str, threshold: float
+) -> tuple[int, int]:
+    """Files with at least this share of deleted rows, and the bytes still live in them."""
+    meta = f"__ducklake_metadata_{LAKE}.ducklake"
+    files, live = con.execute(
+        f"""
+        WITH dead AS (
+            SELECT data_file_id, sum(delete_count) AS n FROM {meta}.ducklake_delete_file
+            WHERE end_snapshot IS NULL GROUP BY 1
+        )
+        SELECT count(*), COALESCE(sum(f.file_size_bytes * (1 - dead.n / f.record_count)), 0)
+        FROM {meta}.ducklake_data_file f
+        JOIN dead USING (data_file_id)
+        JOIN {meta}.ducklake_table t USING (table_id)
+        JOIN {meta}.ducklake_schema s USING (schema_id)
+        WHERE f.end_snapshot IS NULL AND t.end_snapshot IS NULL AND s.end_snapshot IS NULL
+          AND s.schema_name = ? AND t.table_name = ?
+          AND f.record_count > 0 AND dead.n >= ? * f.record_count
+        """,
+        [schema, name, threshold],
+    ).fetchone()
+    return files, int(live)
+
+
+def _rewrite_table(
+    con: duckdb.DuckDBPyConnection, schema: str, name: str, threshold: float
+) -> None:
+    """One rewrite, kept only if the table still has the same rows."""
+    count = f"SELECT count(*) FROM {LAKE}.{schema}.{name}"
+    con.execute("BEGIN")
+    try:
+        before = con.execute(count).fetchone()
+        con.execute(
+            f"CALL ducklake_rewrite_data_files('{LAKE}', '{name}', schema => '{schema}', "
+            f"delete_threshold => {threshold})"
+        ).fetchall()
+        after = con.execute(count).fetchone()
+        if before != after:
+            raise duckdb.DataError(f"{before[0]} rows became {after[0]}, not kept")
+        con.execute("COMMIT")
+    except duckdb.Error:
+        with contextlib.suppress(duckdb.Error):
+            con.execute("ROLLBACK")
+        raise
