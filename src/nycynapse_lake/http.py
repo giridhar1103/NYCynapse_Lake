@@ -27,6 +27,7 @@ class Downloaded:
     size: int
     etag: str | None
     last_modified: str | None
+    headers: httpx.Headers | None = None
 
 
 def _retry_after(resp: httpx.Response) -> float | None:
@@ -162,6 +163,7 @@ class Http:
                         size,
                         resp.headers.get("ETag"),
                         resp.headers.get("Last-Modified"),
+                        resp.headers,
                     )
             except httpx.TransportError as exc:
                 path.unlink(missing_ok=True)

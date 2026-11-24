@@ -9,6 +9,7 @@ quiet. This page lists what happens then, and how to recover.
 |---|---|
 | is unreachable or answers 429 or 5xx | retries with jittered backoff and honours Retry-After, then fails the run; three failures open a circuit breaker for that source |
 | answers 200 with an error page, or a cut-off body | treats it as a failure and retries (JSON, Socrata pages, zip and Parquet files are checked end to end) |
+| answers from a copy that is behind (Socrata says so in a header) | asks again, since its "no more rows" is not the end; if it stays behind, loads what it has, fails and tries again later |
 | has not published a file yet | knows it only from 403, 404 or 410; a server error is never taken for "not yet" |
 | sends rows that break the contract | sets those rows aside in `ops.quarantine` with the reason and loads the rest, up to the table's limit; past it, nothing from that batch is loaded |
 | sends far fewer rows for a table or month that is replaced whole | keeps the old rows (more than 20% fewer is refused; `nyc-lake run SOURCE --force` overrides) |

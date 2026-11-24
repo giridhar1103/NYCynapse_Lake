@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Iterable
 
+from ..retry import Retryable
 from ..runs import RunContext
 from ..socrata import Dataset, Page, Socrata
 
@@ -18,14 +19,20 @@ def load_pages(
 ) -> int:
     """Load pages a few at a time and call on_commit with the last key of each committed group.
 
-    Page files are deleted as soon as their group is written, whether or not it succeeded.
+    Page files are deleted as soon as their group is written, whether or not it succeeded. When
+    the next page cannot be had, the pages before it are still loaded.
     """
     batch, total = [], 0
-    for page in pages:
-        batch.append(page)
-        if len(batch) == PAGES_PER_LOAD:
-            total += _flush(ctx, table, batch, transform, on_commit)
-            batch = []
+    try:
+        for page in pages:
+            batch.append(page)
+            if len(batch) == PAGES_PER_LOAD:
+                ready, batch = batch, []
+                total += _flush(ctx, table, ready, transform, on_commit)
+    except Retryable:
+        if batch:
+            _flush(ctx, table, batch, transform, on_commit)
+        raise
     if batch:
         total += _flush(ctx, table, batch, transform, on_commit)
     return total

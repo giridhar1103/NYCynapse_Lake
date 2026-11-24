@@ -98,13 +98,21 @@ def run(ctx: RunContext, *, force: bool = False) -> None:
     load_pages(
         ctx,
         "traffic_speed_obs",
-        soda.pages(DS, tmp, columns=OBS_COLUMNS, where=f"data_as_of > '{since}'", page_size=PAGE),
+        # Every 15 minutes, so a copy that is behind is simply read again the next time.
+        soda.pages(
+            DS,
+            tmp,
+            columns=OBS_COLUMNS,
+            where=f"data_as_of > '{since}'",
+            page_size=PAGE,
+            stale_ok=True,
+        ),
         obs_sql,
     )
     # One reading dated in the future would move the checkpoint past everything that follows.
     now = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%dT%H:%M:%S")
     newest = soda.scalar(DS, "max(data_as_of)", f"data_as_of <= '{now}'")
-    if newest:
+    if newest and not soda.stale:
         ctx.save("latest_reading", min(newest, now))
 
     # Links change rarely. Refresh them once a day from the latest reading of each.

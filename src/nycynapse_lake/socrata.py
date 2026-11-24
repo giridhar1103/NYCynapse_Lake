@@ -6,9 +6,14 @@ gets skipped. Keysets do not have that problem.
 
 Pages are written as CSV files into the run's temp space and read by DuckDB in one go, so a
 large window never has to sit in Python memory.
+
+Several copies of a dataset answer queries, and one may be a day behind while the others are not.
+It says so in a header. Its "no more rows" is not the end of the data, so such an answer is asked
+for again, and a copy that stays behind fails the run instead of ending it early.
 """
 
 import csv
+import logging
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,9 +22,13 @@ from urllib.parse import urlencode
 from .http import Downloaded, Http
 from .retry import Retryable
 
+log = logging.getLogger(__name__)
+
 PAGE_SIZE = 50_000
 # Socrata can take minutes before the first byte of a large filtered page, then stream fast.
 PAGE_TIMEOUT = 600.0
+STALE_HEADER = "X-SODA2-Data-Out-Of-Date"
+STALE_WAITS = (5.0, 20.0, 60.0, 120.0)  # another copy usually answers the next request
 
 
 @dataclass(frozen=True)
@@ -42,6 +51,7 @@ class Socrata:
     def __init__(self, http: Http, app_token: str | None = None):
         self.http = http
         self.headers = {"X-App-Token": app_token} if app_token else None
+        self.stale = False  # an answer from a copy that is behind was used
 
     def query(self, ds: Dataset, **soql) -> list[dict]:
         params = {f"${k}": v for k, v in soql.items()}
@@ -64,10 +74,12 @@ class Socrata:
         keys: tuple[str, ...] = (":id",),
         after: tuple[str, ...] | None = None,
         page_size: int = PAGE_SIZE,
+        stale_ok: bool = False,
     ) -> Iterator[Page]:
         """Yield pages of `columns` matching `where`, ordered by `keys`, until exhausted.
 
         The last key must be unique (":id" is). Pass `after` to resume behind a known row.
+        With `stale_ok` a copy that is behind is read as it is, and `self.stale` says so.
         """
         select = f"{columns}, {', '.join(keys)}"
         while True:
@@ -78,12 +90,7 @@ class Socrata:
                 "$order": ", ".join(keys),
                 "$limit": page_size,
             }
-            got = self.http.download(
-                f"{ds.url('csv')}?{urlencode(params)}",
-                dest,
-                headers=self.headers,
-                timeout=PAGE_TIMEOUT,
-            )
+            got = self._download(f"{ds.url('csv')}?{urlencode(params)}", dest, stale_ok)
             try:
                 rows, last = _scan(got.path, keys)
             except Retryable:
@@ -96,6 +103,21 @@ class Socrata:
             if rows < page_size:
                 return
             after = last
+
+    def _download(self, url: str, dest: Path, stale_ok: bool) -> Downloaded:
+        for wait in (*STALE_WAITS, None):
+            got = self.http.download(url, dest, headers=self.headers, timeout=PAGE_TIMEOUT)
+            if (got.headers or {}).get(STALE_HEADER, "").lower() != "true":
+                return got
+            if stale_ok:
+                self.stale = True
+                return got
+            got.path.unlink(missing_ok=True)
+            if wait is None:
+                raise Retryable("the copy of the dataset that answers queries is out of date")
+            log.info("a copy that is out of date answered, asking again in %.0f s", wait)
+            self.http.sleep(wait)
+        raise AssertionError("unreachable")
 
 
 def _after(keys: tuple[str, ...], values: tuple[str, ...]) -> str:
