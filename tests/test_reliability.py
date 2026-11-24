@@ -420,3 +420,12 @@ def test_storage_nobody_signed_in_to_is_not_a_problem(settings, ctl, tmp_path, m
     monkeypatch.setattr(offsite, "CONFIG", tmp_path / "missing.conf")
     assert not offsite.ready()
     assert "job:offsite" not in {p.key for p in health.jobs(ctl)}
+
+
+def test_off_site_copies_stay_watched_when_the_login_goes_missing(
+    settings, ctl, tmp_path, monkeypatch
+):
+    monkeypatch.setattr(offsite, "CONFIG", tmp_path / "missing.conf")
+    ctl.record_job("offsite", True, {})
+    ctl.conn.execute("UPDATE ops.jobs SET finished_at = now() - interval '2 days'")
+    assert "job:offsite" in {p.key for p in health.jobs(ctl)}

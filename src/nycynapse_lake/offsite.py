@@ -34,9 +34,10 @@ class NotConfigured(Exception):
 
 def ready() -> bool:
     """Whether the owner has signed in. The login is the last thing to be filled in."""
-    if not CONFIG.exists():
+    try:
+        text = CONFIG.read_text()
+    except (FileNotFoundError, PermissionError):
         return False
-    text = CONFIG.read_text()
     return "[offsite]" in text and ("token =" in text or "type = local" in text)
 
 

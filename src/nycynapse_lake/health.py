@@ -195,7 +195,9 @@ def jobs(ctl: Control) -> list[Problem]:
         )
     }
     out = []
-    limits = {**JOB_LIMITS, **(OFFSITE_LIMITS if offsite.ready() else {})}
+    # Once off-site copies have been made they are watched for good, also if the login goes missing.
+    watched = offsite.ready() or any(job in last for job in OFFSITE_LIMITS)
+    limits = {**JOB_LIMITS, **(OFFSITE_LIMITS if watched else {})}
     for job, limit in limits.items():
         r = last.get(job)
         if r is None or r["age"] > limit:
