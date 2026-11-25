@@ -528,4 +528,4 @@ def test_a_changed_rule_reaches_every_month(monkeypatch):
     assert gold.build(None, None, "trips were loaded")["chunks"] == 0 and len(ran) == 1
     assert gold.months(dt.date(2024, 2, 10)) == [(dt.date(2024, 1, 1), dt.date(2024, 3, 1))]
     last = gold.months(dt.date(2026, 12, 31))[0]
-    assert last == (dt.date(2026, 9, 1), dt.date(2027, 1, 1))
+    assert last == (dt.date(2026, 11, 1), dt.date(2027, 1, 1))

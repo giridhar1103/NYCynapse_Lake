@@ -22,6 +22,7 @@ SELECTOR = "trips"
 # What the two tables are built from, so a change to any of them counts.
 MODELS = (
     "selectors.yml",
+    "macros/months.sql",
     "macros/time.sql",
     "models/gold/aggregates/agg_trip_times_zone_pair.sql",
     "models/gold/aggregates/agg_trips_zone_hourly.sql",
@@ -33,7 +34,7 @@ CHANGED = "the SQL changed"
 # The hourly table keeps old months as they are, so a change to its SQL has to reach them too.
 HOURLY = "agg_trips_zone_hourly"
 FIRST_MONTH = date(2024, 1, 1)
-CHUNK_MONTHS = 4
+CHUNK_MONTHS = 2  # four at once came to 2.6 GB and were killed
 ROOT = Path(__file__).parents[2]
 
 

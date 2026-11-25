@@ -15,7 +15,7 @@
     {% if var('from_month', none) %}
     and file_month >= date '{{ var("from_month") }}' and file_month < date '{{ var("to_month") }}'
     {% elif is_incremental() %}
-    and file_month >= (select max(file_month) - interval 4 month from {{ this }})
+    and file_month >= {{ months_back(this, 4) }}
     {% endif %}
 {% endset %}
 with trips as (

@@ -5,19 +5,17 @@
   last three months of plausible taxi and app trips. Medians come from 2 minute (and 2 dollar) buckets, so the aggregation can spill to disk
   instead of holding every trip in memory. Pairs with fewer than 8 trips in an hour are left out.
 #}
-with recent as (
-    select max(file_month) - interval 2 month as since from {{ ref('fct_rideshare_trip') }}
-),
-trips as (
+{% set since = months_back(source('silver', 'tlc_fhvhv_trips'), 2) %}
+with trips as (
     select 'app' as ride_kind, pickup_zone_id, dropoff_zone_id, pickup_date, pickup_hour,
            trip_minutes, rider_paid_usd as fare_usd
     from {{ ref('fct_rideshare_trip') }}
-    where is_plausible and file_month >= (select since from recent)
+    where is_plausible and file_month >= {{ since }}
     union all
     select 'taxi', pickup_zone_id, dropoff_zone_id, pickup_date, pickup_hour,
            trip_minutes, total_usd - coalesce(tip_usd, 0)
     from {{ ref('fct_taxi_trip') }}
-    where is_plausible and file_month >= (select since from recent)
+    where is_plausible and file_month >= {{ since }}
 ),
 bucketed as (
     select
@@ -85,7 +83,7 @@ select
     m.minutes_median,
     m.minutes_p75,
     f.fare_usd_median,
-    (select since from recent)                                as since_month
+    cast({{ since }} as timestamp)             as since_month
 from minute_stats m
 join fare_stats f using (ride_kind, pickup_zone_id, dropoff_zone_id, day_type, pickup_hour)
 where m.trips >= 8
