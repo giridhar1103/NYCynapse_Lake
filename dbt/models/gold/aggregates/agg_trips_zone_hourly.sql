@@ -9,13 +9,13 @@
   hundreds of millions of trips. Measures are sums and counts so they add up across rows;
   divide sums by counts for averages. Whole months are replaced: by finer keys, an hour whose trips
   are all left out by a new rule would stay. Months further back are built with from_month and
-  to_month (nyc-lake trip-tables does, when this SQL changes).
+  to_month: nyc-lake trip-tables does the last six, or all when this SQL changes, two at a time.
 #}
 {% set months %}
     {% if var('from_month', none) %}
     and file_month >= date '{{ var("from_month") }}' and file_month < date '{{ var("to_month") }}'
     {% elif is_incremental() %}
-    and file_month >= {{ months_back(this, 4) }}
+    and file_month >= {{ months_back(this, 1) }}
     {% endif %}
 {% endset %}
 with trips as (

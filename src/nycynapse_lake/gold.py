@@ -34,6 +34,7 @@ CHANGED = "the SQL changed"
 # The hourly table keeps old months as they are, so a change to its SQL has to reach them too.
 HOURLY = "agg_trips_zone_hourly"
 FIRST_MONTH = date(2024, 1, 1)
+RECENT_CHUNKS = 3
 CHUNK_MONTHS = 2  # four at once came to 2.6 GB and were killed
 ROOT = Path(__file__).parents[2]
 
@@ -72,7 +73,9 @@ def due(ctl: Control, dbt: Path = ROOT / "dbt") -> str | None:
 def build(settings: Settings, ctl: Control, reason: str, dbt: Path = ROOT / "dbt") -> dict:
     began = datetime.now(UTC)
     _dbt(dbt, "build", "--selector", SELECTOR)
-    chunks = months(began.date()) if reason in (CHANGED, "asked for") else []
+    chunks = months(began.date())
+    if reason not in (CHANGED, "asked for"):
+        chunks = chunks[:RECENT_CHUNKS]  # a month can be published again, corrected
     for start, end in chunks:
         only = json.dumps({"from_month": start.isoformat(), "to_month": end.isoformat()})
         _dbt(dbt, "run", "--select", HOURLY, "--vars", only)

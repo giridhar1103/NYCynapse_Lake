@@ -525,7 +525,7 @@ def test_a_changed_rule_reaches_every_month(monkeypatch):
     for newer, older in zip(spans, spans[1:], strict=False):
         assert older["to_month"] == newer["from_month"]  # no month twice, none left out
     ran.clear()
-    assert gold.build(None, None, "trips were loaded")["chunks"] == 0 and len(ran) == 1
+    assert gold.build(None, None, "trips were loaded")["chunks"] == 3 and len(ran) == 4
     assert gold.months(dt.date(2024, 2, 10)) == [(dt.date(2024, 1, 1), dt.date(2024, 3, 1))]
     last = gold.months(dt.date(2026, 12, 31))[0]
     assert last == (dt.date(2026, 11, 1), dt.date(2027, 1, 1))
