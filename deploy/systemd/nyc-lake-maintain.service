@@ -9,6 +9,8 @@ EnvironmentFile=/root/.secrets/nycynapse.env
 Environment=HOME=/root
 ExecStart=/root/NYCynapse_Lake/.venv/bin/nyc-lake maintain
 MemoryMax=2G
+# File buffers sit on top of the DuckDB limit: with 1 GB a large rewrite reached the cap.
+Environment=NYC_LAKE_MEMORY_LIMIT=750MB
 Nice=15
 TimeoutStartSec=3h
 Restart=on-failure

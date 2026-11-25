@@ -95,6 +95,9 @@ def merge(con: duckdb.DuckDBPyConnection) -> tuple[list, list[str]]:
                     errors.append(f"merge {schema}.{name}: {str(exc)[:160]}")
                 else:
                     time.sleep(MERGE_WAIT_S)
+            except duckdb.OutOfMemoryException as exc:
+                errors.append(f"merge {schema}.{name}: {str(exc)[:160]}")
+                break
     return done, errors
 
 
