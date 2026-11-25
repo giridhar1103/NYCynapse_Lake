@@ -503,3 +503,29 @@ def test_trip_tables_are_built_when_trips_arrive_or_their_sql_changes(ctl, monke
     assert gold.due(ctl) is None
     monkeypatch.setattr(gold, "code", lambda dbt: "other")
     assert gold.due(ctl) == "the SQL changed"
+
+
+def test_a_changed_rule_reaches_every_month(monkeypatch):
+    """A new rule for which trips count was only applied to the last months of the table."""
+    import datetime as dt
+    import json
+    import types
+
+    ran = []
+    monkeypatch.setattr(
+        gold.subprocess,
+        "run",
+        lambda command, **kw: ran.append(command[1:]) or types.SimpleNamespace(returncode=0),
+    )
+    out = gold.build(None, None, gold.CHANGED)
+    assert ran[0] == ["build", "--selector", "trips"] and out["chunks"] == len(ran) - 1
+    spans = [json.loads(c[c.index("--vars") + 1]) for c in ran[1:]]
+    assert all(c[:3] == ["run", "--select", gold.HOURLY] for c in ran[1:])
+    assert spans[-1]["from_month"] == "2024-01-01"
+    for newer, older in zip(spans, spans[1:], strict=False):
+        assert older["to_month"] == newer["from_month"]  # no month twice, none left out
+    ran.clear()
+    assert gold.build(None, None, "trips were loaded")["chunks"] == 0 and len(ran) == 1
+    assert gold.months(dt.date(2024, 2, 10)) == [(dt.date(2024, 1, 1), dt.date(2024, 3, 1))]
+    last = gold.months(dt.date(2026, 12, 31))[0]
+    assert last == (dt.date(2026, 9, 1), dt.date(2027, 1, 1))

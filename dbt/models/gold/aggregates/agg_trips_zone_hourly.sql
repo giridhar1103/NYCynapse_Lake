@@ -1,16 +1,20 @@
 {{ config(
     materialized='incremental',
-    unique_key=['file_month', 'service', 'pickup_date', 'pickup_hour', 'pickup_zone_id'],
+    unique_key='file_month',
     incremental_strategy='delete+insert'
 ) }}
 {#
   Trips per pickup zone and local hour for every for-hire and taxi service. Most questions
   about trip volume, fares or waits by place and time can be answered here without scanning
   hundreds of millions of trips. Measures are sums and counts so they add up across rows;
-  divide sums by counts for averages.
+  divide sums by counts for averages. Whole months are replaced: by finer keys, an hour whose trips
+  are all left out by a new rule would stay. Months further back are built with from_month and
+  to_month (nyc-lake trip-tables does, when this SQL changes).
 #}
 {% set months %}
-    {% if is_incremental() %}
+    {% if var('from_month', none) %}
+    and file_month >= date '{{ var("from_month") }}' and file_month < date '{{ var("to_month") }}'
+    {% elif is_incremental() %}
     and file_month >= (select max(file_month) - interval 4 month from {{ this }})
     {% endif %}
 {% endset %}

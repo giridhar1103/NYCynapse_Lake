@@ -1,13 +1,16 @@
 """The gold tables built from taxi and app trips, which are published once a month.
 
 Building them reads hundreds of millions of trips and takes half an hour, so they are left out of
-the daily build and built when trips were loaded since the last time, or their SQL changed.
+the daily build and built when trips were loaded since the last time, or their SQL changed. After
+such a change the hourly table is built for every month, a few months at a time to stay within
+memory.
 """
 
 import hashlib
+import json
 import os
 import subprocess
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from .config import Settings
@@ -26,6 +29,11 @@ MODELS = (
     "models/gold/facts/fct_taxi_trip.sql",
 )
 MAX_AGE = timedelta(days=40)
+CHANGED = "the SQL changed"
+# The hourly table keeps old months as they are, so a change to its SQL has to reach them too.
+HOURLY = "agg_trips_zone_hourly"
+FIRST_MONTH = date(2024, 1, 1)
+CHUNK_MONTHS = 4
 ROOT = Path(__file__).parents[2]
 
 
@@ -46,7 +54,7 @@ def due(ctl: Control, dbt: Path = ROOT / "dbt") -> str | None:
     if last is None:
         return "never built"
     if last["detail"].get("code") != code(dbt):
-        return "the SQL changed"
+        return CHANGED
     # From when the build began: trips loaded while it ran may not be in it.
     since = datetime.fromisoformat(last["detail"]["began"])
     if ctl.conn.execute(
@@ -62,9 +70,33 @@ def due(ctl: Control, dbt: Path = ROOT / "dbt") -> str | None:
 
 def build(settings: Settings, ctl: Control, reason: str, dbt: Path = ROOT / "dbt") -> dict:
     began = datetime.now(UTC)
-    command = [str(ROOT / ".venv-dbt/bin/dbt"), "build", "--selector", SELECTOR]
+    _dbt(dbt, "build", "--selector", SELECTOR)
+    chunks = months(began.date()) if reason in (CHANGED, "asked for") else []
+    for start, end in chunks:
+        only = json.dumps({"from_month": start.isoformat(), "to_month": end.isoformat()})
+        _dbt(dbt, "run", "--select", HOURLY, "--vars", only)
+    return {
+        "reason": reason,
+        "began": began.isoformat(),
+        "code": code(dbt),
+        "chunks": len(chunks),
+    }
+
+
+def months(today: date) -> list[tuple[date, date]]:
+    """From the first month to the current one in pieces, the newest first."""
+    out, end = [], (today.replace(day=1) + timedelta(days=32)).replace(day=1)
+    while end > FIRST_MONTH:
+        n = end.year * 12 + end.month - 1 - CHUNK_MONTHS
+        start = max(FIRST_MONTH, date(n // 12, n % 12 + 1, 1))
+        out.append((start, end))
+        end = start
+    return out
+
+
+def _dbt(dbt: Path, *args: str) -> None:
     env = {**os.environ, "DBT_PROFILES_DIR": str(dbt)}
+    command = [str(ROOT / ".venv-dbt/bin/dbt"), *args]
     done = subprocess.run(command, cwd=dbt, env=env, check=False)  # its log goes to the journal
     if done.returncode:
-        raise RuntimeError(f"dbt build --selector {SELECTOR} ended with {done.returncode}")
-    return {"reason": reason, "began": began.isoformat(), "code": code(dbt)}
+        raise RuntimeError(f"dbt {' '.join(args[:3])} ended with {done.returncode}")
