@@ -84,7 +84,7 @@ models:
       - {name: airport_fee_usd, description: "Airport fee. Yellow taxis only."}
       - {name: cbd_congestion_fee_usd, description: "Congestion relief zone toll. Charged from 5 January 2025."}
       - {name: total_usd, description: "Total charged, without cash tips."}
-      - {name: is_plausible, description: "False for trips with impossible times, distances or totals."}
+      - {name: is_plausible, description: "False for trips with impossible times, distances or totals: over 6 hours, 200 miles or $1,000."}
 
   - name: fct_service_request
     description: >

@@ -33,8 +33,10 @@ select
     {% if service == 'yellow' %}airport_fee_usd{% else %}null{% endif %} as airport_fee_usd,
     cbd_congestion_fee_usd,
     total_usd,
-    dropoff_at > pickup_at and trip_miles >= 0 and total_usd >= 0 and trip_miles < 200
-                                                    as is_plausible
+    -- A total of $323,820 or a meter left on overnight moves the average of a whole month.
+    dropoff_at > pickup_at and dropoff_at <= pickup_at + interval 6 hours
+        and trip_miles >= 0 and trip_miles < 200
+        and total_usd >= 0 and total_usd < 1000     as is_plausible
 from {{ source('silver', 'tlc_' ~ service ~ '_trips') }}
 {% if not loop.last %}union all{% endif %}
 {% endfor %}
