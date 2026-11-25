@@ -11,3 +11,7 @@ ExecStart=/root/NYCynapse_Lake/.venv/bin/nyc-lake maintain
 MemoryMax=2G
 Nice=15
 TimeoutStartSec=3h
+Restart=on-failure
+RestartSec=20min
+RestartSteps=3
+RestartMaxDelaySec=2h

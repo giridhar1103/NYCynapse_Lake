@@ -10,6 +10,7 @@ from a backup of the last week must still find every file it lists.
 
 import contextlib
 import logging
+import time
 from datetime import UTC, datetime, timedelta
 
 import duckdb
@@ -28,6 +29,9 @@ RUN_DAYS = 180
 # frees and is only for small tables.
 REWRITE_STEPS = ((0.95, 400 * 1024**2), (0.5, 400 * 1024**2), (0.05, 20 * 1024**2))
 REWRITE_MIN_DELETES = 20
+# A live table is written every few minutes, so the next try usually works.
+MERGE_TRIES = 3
+MERGE_WAIT_S = 20
 
 
 def expirable(con: duckdb.DuckDBPyConnection, ctl: Control, keep_days: int) -> list[int]:
@@ -47,7 +51,8 @@ def run(
 ) -> dict:
     report = {}
     report["rewritten"], errors = rewrite(con)
-    report["merged"] = con.execute(f"CALL ducklake_merge_adjacent_files('{LAKE}')").fetchall()
+    report["merged"], skipped = merge(con)
+    errors += skipped
     victims = expirable(con, ctl, keep_days)
     if victims:
         con.execute(f"CALL ducklake_expire_snapshots('{LAKE}', versions => ?)", [victims])
@@ -61,9 +66,36 @@ def run(
     report["quarantine_purged"] = ctl.purge_quarantine(quarantine_days)
     report["ops_purged"] = ctl.purge_history(dq_days=DQ_DAYS, run_days=RUN_DAYS)
     if errors:
-        report["rewrite_errors"] = errors
+        report["skipped"] = errors
     log.info("maintenance: %s", {k: v for k, v in report.items() if k != "merged"})
     return report
+
+
+def _tables(con: duckdb.DuckDBPyConnection) -> list[tuple[str, str]]:
+    return con.execute(
+        "SELECT schema_name, table_name FROM duckdb_tables() WHERE database_name = ? "
+        "AND schema_name IN ('silver', 'gold') ORDER BY 1, 2",
+        [LAKE],
+    ).fetchall()
+
+
+def merge(con: duckdb.DuckDBPyConnection) -> tuple[list, list[str]]:
+    """Merge small files table by table. In one go, a load writing to one table ended the whole
+    run, and nothing was expired or cleaned up that day."""
+    done, errors = [], []
+    for schema, name in _tables(con):
+        for attempt in range(1, MERGE_TRIES + 1):
+            try:
+                done += con.execute(
+                    f"CALL ducklake_merge_adjacent_files('{LAKE}', '{name}', schema => '{schema}')"
+                ).fetchall()
+                break
+            except duckdb.TransactionException as exc:  # a write to it got there first
+                if attempt == MERGE_TRIES:
+                    errors.append(f"merge {schema}.{name}: {str(exc)[:160]}")
+                else:
+                    time.sleep(MERGE_WAIT_S)
+    return done, errors
 
 
 def rewrite(con: duckdb.DuckDBPyConnection) -> tuple[dict, list[str]]:
@@ -71,12 +103,7 @@ def rewrite(con: duckdb.DuckDBPyConnection) -> tuple[dict, list[str]]:
     and merging alone skips those: one alerts table had 6,331 files for 0.6 MB, and the 311 table
     kept 17 million dead rows next to 11 million live ones."""
     done, errors = {}, []
-    tables = con.execute(
-        "SELECT schema_name, table_name FROM duckdb_tables() WHERE database_name = ? "
-        "AND schema_name IN ('silver', 'gold') ORDER BY 1, 2",
-        [LAKE],
-    ).fetchall()
-    for schema, name in tables:
+    for schema, name in _tables(con):
         for threshold, limit in REWRITE_STEPS:
             files, live = _dead_files(con, schema, name, threshold)
             if files < REWRITE_MIN_DELETES or live > limit:

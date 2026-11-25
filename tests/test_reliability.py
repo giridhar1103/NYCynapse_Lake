@@ -9,6 +9,7 @@ import uuid
 import zipfile
 from datetime import UTC, datetime, timedelta
 
+import duckdb
 import httpx
 import pyarrow as pa
 import pytest
@@ -344,6 +345,37 @@ def test_a_rewrite_that_loses_rows_is_not_kept(con):
     assert not done and "not kept" in errors[0]
     assert con.execute("SELECT count(*), sum(f), sum(a) FROM lake.gold.churn").fetchone() == before
     assert maintain._dead_files(con, "gold", "churn", 0.95)[0] == 25
+
+
+def test_a_busy_table_does_not_end_the_merge(tmp_path, monkeypatch):
+    """A load that writes to one table while files are merged costs that table, not the run."""
+    con = duckdb.connect()
+    con.execute("INSTALL ducklake; LOAD ducklake")
+    con.execute(f"ATTACH 'ducklake:{tmp_path}/m.ducklake' AS lake (DATA_PATH '{tmp_path}/data')")
+    con.execute("CREATE SCHEMA lake.silver")
+    for name in ("busy", "quiet", "slow"):
+        con.execute(f"CREATE TABLE lake.silver.{name} (a int)")
+        for _ in range(4):
+            con.execute(f"INSERT INTO lake.silver.{name} SELECT range FROM range(3000)")
+    tries = []
+
+    class Live:
+        def execute(self, sql, *args):
+            if "merge_adjacent" in sql:
+                table = sql.split("'")[3]
+                tries.append(table)
+                if table == "busy" or (table == "slow" and tries.count("slow") == 1):
+                    raise duckdb.TransactionException("another transaction has deleted from it")
+            return con.execute(sql, *args)
+
+    monkeypatch.setattr(maintain.time, "sleep", lambda s: None)
+    done, errors = maintain.merge(Live())
+    files = dict(
+        con.execute("SELECT table_name, file_count FROM ducklake_table_info('lake')").fetchall()
+    )
+    assert files == {"busy": 4, "quiet": 1, "slow": 1}
+    assert tries.count("busy") == maintain.MERGE_TRIES and tries.count("slow") == 2
+    assert len(done) == 2 and len(errors) == 1 and "silver.busy" in errors[0]
 
 
 def test_live_exports_are_weekly(settings, con, tmp_path):
