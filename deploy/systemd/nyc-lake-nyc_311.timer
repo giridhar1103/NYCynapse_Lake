@@ -2,7 +2,9 @@
 Description=Schedule for NYCynapse lake load: nyc_311
 
 [Timer]
-OnCalendar=*-*-* 03:15:00 UTC
+# The city's query copy is marked out of date overnight and caught up by about 05:30 UTC on
+# Nov 24 and 25, so the first run waits until after the trip load and the file check.
+OnCalendar=*-*-* 06:40:00 UTC
 # Again before the daily tables at 10:00: the copies that answer queries can be hours behind.
 OnCalendar=*-*-* 09:15:00 UTC
 RandomizedDelaySec=10m
